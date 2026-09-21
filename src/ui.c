@@ -69,11 +69,11 @@ typedef struct {
 
 typedef struct { const char *label; const char *key; int id; int check; int sep; } MenuItem;
 
-enum { A_NONE, A_EXIT, A_REFRESH, A_SPEED_HIGH, A_SPEED_NORMAL, A_SPEED_LOW, A_SPEED_PAUSE, A_TREE,
+enum { A_NONE, A_EXIT, A_RUN, A_RESTART_SHELL, A_REFRESH, A_SPEED_HIGH, A_SPEED_NORMAL, A_SPEED_LOW, A_SPEED_PAUSE, A_TREE,
        A_KERNEL, A_ONLYME, A_CORES, A_ABOUT, A_END, A_END_TREE, A_PROPS, A_GOTO_DETAILS, A_GOTO_PROC,
        A_EXPAND_ALL, A_COLLAPSE_ALL, A_TAB_PROC, A_TAB_PERF, A_TAB_DET };
 
-enum { DLG_NONE, DLG_END, DLG_END_TREE, DLG_PROPS, DLG_ABOUT, DLG_ERROR };
+enum { DLG_NONE, DLG_END, DLG_END_TREE, DLG_PROPS, DLG_ABOUT, DLG_ERROR, DLG_END_CRIT, DLG_RUN };
 
 struct UI {
     int s, w, h; uint32_t *px; Gfx g;
@@ -95,7 +95,8 @@ struct UI {
     int mx, my;
     int menu_open, menu_hover;
     int ctx_open, ctx_x, ctx_y, ctx_pid, ctx_hover, ctx_n;
-    int dlg, dlg_pid, dlg_hover; char dlg_name[64], dlg_msg[256];
+    int dlg, dlg_pid, dlg_hover, dlg_tree; char dlg_name[64], dlg_msg[256];
+    char run[256]; int nrun;
     Table *drag_tab; int drag_col, drag_x0, drag_w0;
     Table *sb_tab; int sb_y0, sb_scroll0;
     int collapsed[256]; int ncollapsed;
@@ -164,6 +165,37 @@ static Proc *find_proc(UI *u, int pid)
 {
     int i = hash_find(u->chash, u->chcap, u->procs, pid);
     return i < 0 ? NULL : &u->procs[i];
+}
+
+/* ---- process safety ------------------------------------------------------ */
+static int name_eq(const char *a, const char *b) { for (; *a && *b; a++, b++) if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return 0; return *a == *b; }
+
+/* Session-critical processes: ending these takes the desktop / login session down with them.
+ * They are never ended as part of a tree, and a direct request gets a red warning first. */
+int proc_protected(const Proc *p)
+{
+    static const char *crit[] = {
+        /* Windows */ "explorer.exe", "dwm.exe", "csrss.exe", "winlogon.exe", "wininit.exe", "services.exe", "lsass.exe",
+        "smss.exe", "svchost.exe", "fontdrvhost.exe", "sihost.exe", "ctfmon.exe", "ShellExperienceHost.exe",
+        "StartMenuExperienceHost.exe", "SearchHost.exe", "TextInputHost.exe", "System", "System Idle Process", "Registry", "Memory Compression",
+        /* Linux */ "systemd", "init", "Xorg", "Xwayland", "X", "gnome-shell", "gnome-session-binary", "kwin_wayland", "kwin_x11",
+        "plasmashell", "ksmserver", "mutter", "sway", "Hyprland", "weston", "gdm", "gdm3", "gdm-session-worker", "sddm", "sddm-helper",
+        "lightdm", "xfce4-session", "xfwm4", "cinnamon", "cinnamon-session", "mate-session", "dbus-daemon", "dbus-broker", "pipewire", "wireplumber", "pulseaudio",
+        /* macOS */ "launchd", "kernel_task", "WindowServer", "loginwindow", "Dock", "Finder", "SystemUIServer", "ControlCenter", "coreaudiod", "launchservicesd",
+    };
+    if (p->pid <= 1) return 1;
+    if (p->cmd[0] == '[') return 1;                                   /* kernel thread */
+    for (size_t i = 0; i < sizeof crit / sizeof *crit; i++) if (name_eq(p->name, crit[i])) return 1;
+    return 0;
+}
+
+/* A parent link is only trusted if the parent existed before the child: pids are recycled
+ * (very quickly on Windows), so a stale ppid can point at an unrelated, newer process. */
+int proc_is_child_of(const Proc *c, const Proc *parent)
+{
+    if (c->ppid != parent->pid || c->pid == parent->pid) return 0;
+    if (parent->start && c->start && c->start < parent->start) return 0;
+    return 1;
 }
 
 /* ---- table setup --------------------------------------------------------- */
@@ -373,6 +405,8 @@ static void sample(UI *u)
     int threads = 0;
     for (int i = 0; i < u->nproc; i++) {
         Proc *p = &u->procs[i];
+        int par = hash_find(u->chash, u->chcap, u->procs, p->ppid);
+        if (par >= 0 && !proc_is_child_of(p, &u->procs[par])) p->ppid = 0;   /* recycled pid: not really our parent */
         int j = hash_find(u->phash, u->phcap, u->prevp, p->pid);
         if (j >= 0 && u->prevp[j].start == p->start) {
             Proc *q = &u->prevp[j];
@@ -894,7 +928,11 @@ static int menu_items(UI *u, int m, MenuItem *out)
     int n = 0;
     switch (m) {
     case 0:
-        out[n++] = (MenuItem){ "Refresh now", "F5", A_REFRESH, 0, 0 };
+        out[n++] = (MenuItem){ "Run new task...", "Ctrl+N", A_RUN, 0, 0 };
+#ifdef _WIN32
+        out[n++] = (MenuItem){ "Restart Windows Explorer", "", A_RESTART_SHELL, 0, 0 };
+#endif
+        out[n++] = (MenuItem){ "Refresh now", "F5", A_REFRESH, 0, 1 };
         out[n++] = (MenuItem){ "Exit", "Ctrl+Q", A_EXIT, 0, 1 };
         break;
     case 1:
@@ -973,6 +1011,8 @@ static void draw_dialog(UI *u)
     int w = P(440), h = P(190);
     if (u->dlg == DLG_PROPS) { w = P(560); h = P(330); }
     if (u->dlg == DLG_ABOUT) { w = P(460); h = P(250); }
+    if (u->dlg == DLG_END_CRIT) { w = P(520); h = P(232); }
+    if (u->dlg == DLG_RUN) { w = P(460); h = P(214); }
     int x = (u->w - w) / 2, y = (u->h - h) / 2;
     for (int i = 8; i >= 1; i--) gfx_rrect_a(g, x - i + 4, y - i + 8, w + 2 * i - 8, h + 2 * i - 8, P(10) + i, C_SHADOW, 9);
     gfx_rrect_b(g, x, y, w, h, P(10), C_PANEL, C_BORDER);
@@ -983,7 +1023,8 @@ static void draw_dialog(UI *u)
     gfx_hline(g, x + P(1), y + h - P(60), w - P(2), C_BORDER);
 
     const char *title = u->dlg == DLG_END ? "End task" : u->dlg == DLG_END_TREE ? "End process tree" :
-                        u->dlg == DLG_PROPS ? "Properties" : u->dlg == DLG_ABOUT ? "About Task Manager" : "Something went wrong";
+                        u->dlg == DLG_PROPS ? "Properties" : u->dlg == DLG_ABOUT ? "About Task Manager" :
+                        u->dlg == DLG_END_CRIT ? "End a system process?" : u->dlg == DLG_RUN ? "Run new task" : "Something went wrong";
     gfx_font(g, F_BIG); gfx_text(g, x + P(24), y + P(18), title, C_TEXT); gfx_font(g, F_UI);
     int ty = y + P(58);
     Proc *p = u->dlg_pid > 0 ? find_proc(u, u->dlg_pid) : NULL;
@@ -1001,6 +1042,38 @@ static void draw_dialog(UI *u)
         u->r_dlg_btn[0] = R(x + w - P(236), y + h - P(46), P(110), P(30));
         u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
         button(u, u->r_dlg_btn[0], "End process", 1, inr(u->r_dlg_btn[0], u->mx, u->my));
+        button(u, u->r_dlg_btn[1], "Cancel", 0, inr(u->r_dlg_btn[1], u->mx, u->my));
+    } else if (u->dlg == DLG_END_CRIT) {
+        /* red warning badge */
+        int bx = x + P(24), by = ty - P(2);
+        gfx_rrect(g, bx, by, icon_sz, icon_sz, icon_sz / 2, 0xffc42b1c);
+        gfx_fill(g, bx + icon_sz / 2 - P(1), by + P(7), P(3), P(11), 0xffffffff);
+        gfx_fill(g, bx + icon_sz / 2 - P(1), by + P(21), P(3), P(3), 0xffffffff);
+        int tx = bx + icon_sz + P(14);
+        gfx_font(g, F_BOLD);
+        snprintf(line, sizeof line, "%s  (PID %d)", u->dlg_name, u->dlg_pid);
+        gfx_text_clip(g, tx, ty, x + w - tx - P(24), line, C_TEXT); ty += P(20);
+        gfx_font(g, F_UI);
+        gfx_text(g, tx, ty, "This process is part of your desktop session. Ending it can leave you", 0xffc42b1c); ty += P(17);
+        gfx_text(g, tx, ty, "with no taskbar, no desktop or a frozen screen until you sign out.", 0xffc42b1c); ty += P(22);
+        gfx_text(g, tx, ty, "It is never ended as part of a tree. Click \"End anyway\" (or Ctrl+Enter).", C_DIM);
+        u->r_dlg_btn[0] = R(x + w - P(236), y + h - P(46), P(110), P(30));
+        u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
+        { Rect b = u->r_dlg_btn[0]; int hv = inr(b, u->mx, u->my);
+          gfx_rrect_b(g, b.x, b.y, b.w, b.h, P(4), hv ? 0xffd93a2a : 0xffc42b1c, hv ? 0xffd93a2a : 0xffc42b1c);
+          gfx_text_mid(g, b.x, b.y, b.w, b.h, "End anyway", 0xffffffff); }
+        button(u, u->r_dlg_btn[1], "Cancel", 1, inr(u->r_dlg_btn[1], u->mx, u->my));
+    } else if (u->dlg == DLG_RUN) {
+        gfx_text(g, x + P(24), ty, "Type the name of a program, folder or document to open it.", C_DIM); ty += P(26);
+        Rect in = R(x + P(24), ty, w - P(48), P(30));
+        gfx_rrect_b(g, in.x, in.y, in.w, in.h, P(5), 0xffffffff, C_SELB);
+        gfx_rrect(g, in.x + P(6), in.y + in.h - P(2), in.w - P(12), P(2), P(1), C_SELB);
+        gfx_text_clip(g, in.x + P(10), in.y + (in.h - gfx_fonth(g)) / 2, in.w - P(20), u->run, C_TEXT);
+        { int cx = in.x + P(10) + gfx_textw(g, u->run) + P(1); if (cx < in.x + in.w - P(8)) gfx_fill(g, cx, in.y + P(7), P(1), in.h - P(14), C_TEXT); }
+        if (!u->nrun) gfx_text_v(g, in.x + P(10), in.y, in.h, "e.g. explorer.exe, cmd, notepad", 0xff8a8a8a);
+        u->r_dlg_btn[0] = R(x + w - P(236), y + h - P(46), P(110), P(30));
+        u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
+        button(u, u->r_dlg_btn[0], "OK", 1, inr(u->r_dlg_btn[0], u->mx, u->my));
         button(u, u->r_dlg_btn[1], "Cancel", 0, inr(u->r_dlg_btn[1], u->mx, u->my));
     } else if (u->dlg == DLG_PROPS) {
         if (!p) { gfx_text(g, x + P(24), ty, "The process has exited.", C_TEXT); }
@@ -1028,7 +1101,7 @@ static void draw_dialog(UI *u)
         }
         u->r_dlg_btn[0] = R(x + w - P(236), y + h - P(46), P(110), P(30));
         u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
-        button(u, u->r_dlg_btn[0], "End task", 0, inr(u->r_dlg_btn[0], u->mx, u->my));
+        if (p && p->pid != sys_self_pid()) button(u, u->r_dlg_btn[0], "End task", 0, inr(u->r_dlg_btn[0], u->mx, u->my)); else u->r_dlg_btn[0] = R(0, 0, 0, 0);
         button(u, u->r_dlg_btn[1], "Close", 1, inr(u->r_dlg_btn[1], u->mx, u->my));
     } else if (u->dlg == DLG_ABOUT) {
         Proc self; memset(&self, 0, sizeof self); snprintf(self.name, sizeof self.name, "Task Manager");
@@ -1038,13 +1111,13 @@ static void draw_dialog(UI *u)
         gfx_text(g, tx, ty + P(18), "A compact, dependency-free task manager.", C_DIM); ty += P(46);
         gfx_text(g, x + P(24), ty, "Software-rendered UI, native OS APIs, one tiny executable.", C_TEXT); ty += P(20);
         snprintf(line, sizeof line, "%s  -  %s", u->sys.os, u->sys.host); gfx_text_clip(g, x + P(24), ty, w - P(48), line, C_DIM); ty += P(24);
-        gfx_text(g, x + P(24), ty, "Tab: switch tab   Type: search   Del: end task   Enter: properties   Space: pause", C_DIM);
+        gfx_text(g, x + P(24), ty, "Tab: switch tab   Type: search   Del: end task   Ctrl+N: run   Space: pause", C_DIM);
         u->r_dlg_btn[0] = R(0, 0, 0, 0);
         u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
         button(u, u->r_dlg_btn[1], "OK", 1, inr(u->r_dlg_btn[1], u->mx, u->my));
     } else {
         gfx_text_clip(g, x + P(24), ty, w - P(48), u->dlg_msg, C_TEXT);
-        gfx_text(g, x + P(24), ty + P(20), "You may need elevated privileges (root / Administrator).", C_DIM);
+        gfx_text(g, x + P(24), ty + P(20), strstr(u->dlg_msg, "start") ? "Check the spelling, or give a full path." : "You may need elevated privileges (root / Administrator).", C_DIM);
         u->r_dlg_btn[0] = R(0, 0, 0, 0);
         u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
         button(u, u->r_dlg_btn[1], "OK", 1, inr(u->r_dlg_btn[1], u->mx, u->my));
@@ -1157,22 +1230,33 @@ void ui_draw(UI *u)
 }
 
 /* ---- actions ----------------------------------------------------------------------- */
-static void collect_tree(UI *u, int pid, int *out, int *n, int max)
+static void collect_tree(UI *u, const Proc *root, int *out, int *n, int max, int depth)
 {
-    if (*n >= max) return;
-    for (int i = 0; i < u->nproc && *n < max; i++)
-        if (u->procs[i].ppid == pid && u->procs[i].pid != pid) { collect_tree(u, u->procs[i].pid, out, n, max); }
-    if (*n < max) out[(*n)++] = pid;
+    if (*n >= max || depth > 64) return;
+    for (int i = 0; i < u->nproc && *n < max; i++) {
+        Proc *c = &u->procs[i];
+        if (!proc_is_child_of(c, root)) continue;
+        if (proc_protected(c) || c->pid == sys_self_pid()) continue;      /* never take the shell down implicitly (nor its subtree) */
+        collect_tree(u, c, out, n, max, depth + 1);
+    }
+    if (*n < max) out[(*n)++] = root->pid;
 }
 
 static void do_kill(UI *u, int pid, int tree)
 {
-    int list[1024], n = 0, fail = 0, ok = 0;
-    if (tree) collect_tree(u, pid, list, &n, 1024); else list[n++] = pid;
-    for (int i = 0; i < n; i++) { if (sys_kill(list[i]) == 0) ok++; else fail++; }
+    int list[1024], n = 0, fail = 0, ok = 0, gone = 0, denied = 0;
+    Proc *root = find_proc(u, pid);
+    if (!root) { flash(u, "The process has already exited."); u->dlg = DLG_NONE; return; }
+    if (tree) collect_tree(u, root, list, &n, 1024, 0); else list[n++] = pid;
+    for (int i = 0; i < n; i++) {
+        Proc *p = find_proc(u, list[i]);
+        if (!p) { gone++; continue; }
+        int r = sys_kill(p->pid, p->start);                 /* verified against the start stamp: never a recycled pid */
+        if (r == 0) ok++; else if (r == -2) gone++; else { fail++; denied++; }
+    }
     char msg[128];
-    if (fail) { snprintf(u->dlg_msg, sizeof u->dlg_msg, "Could not end %d of %d process(es) - access denied.", fail, n); u->dlg = DLG_ERROR; }
-    else { snprintf(msg, sizeof msg, "Ended %d process(es).", ok); flash(u, msg); u->dlg = DLG_NONE; }
+    if (fail) { snprintf(u->dlg_msg, sizeof u->dlg_msg, "Could not end %d of %d process(es) - access denied.", denied, n); u->dlg = DLG_ERROR; }
+    else { if (tree) snprintf(msg, sizeof msg, "Ended %d process(es).", ok); else snprintf(msg, sizeof msg, "Ended %s.", u->dlg_name); if (tree && gone) snprintf(msg + strlen(msg), sizeof msg - strlen(msg), " (%d already gone)", gone); flash(u, msg); u->dlg = DLG_NONE; }
     u->last_sample = sys_now_ns() - (uint64_t)u->interval_ms * 1000000ull + 400000000ull;   /* resample soon */
 }
 
@@ -1180,13 +1264,32 @@ static void open_dialog(UI *u, int kind, int pid)
 {
     Proc *p = find_proc(u, pid);
     if (!p) return;
+    if (kind == DLG_END || kind == DLG_END_TREE) {
+        if (p->pid == sys_self_pid()) { flash(u, "Use File > Exit to close Task Manager."); return; }
+        u->dlg_tree = kind == DLG_END_TREE;
+        if (proc_protected(p)) kind = DLG_END_CRIT;          /* red warning, Enter does not confirm */
+    }
     u->dlg = kind; u->dlg_pid = pid; snprintf(u->dlg_name, sizeof u->dlg_name, "%s", p->name);
+}
+
+static void run_task(UI *u)
+{
+    while (u->nrun && u->run[u->nrun - 1] == ' ') u->run[--u->nrun] = 0;
+    if (!u->nrun) return;
+    if (sys_spawn(u->run) == 0) { char m[128]; snprintf(m, sizeof m, "Started: %s", u->run); flash(u, m); u->dlg = DLG_NONE; }
+    else { snprintf(u->dlg_msg, sizeof u->dlg_msg, "Could not start \"%s\".", u->run); u->dlg = DLG_ERROR; }
 }
 
 static int do_action(UI *u, int a)
 {
     switch (a) {
     case A_EXIT: return -1;
+    case A_RUN: u->dlg = DLG_RUN; break;
+    case A_RESTART_SHELL: {
+        /* end every explorer.exe we are allowed to, then start a fresh one (the classic recovery) */
+        for (int i = 0; i < u->nproc; i++) if (name_eq(u->procs[i].name, "explorer.exe")) sys_kill(u->procs[i].pid, u->procs[i].start);
+        snprintf(u->run, sizeof u->run, "explorer.exe"); u->nrun = (int)strlen(u->run); run_task(u); u->nrun = 0; u->run[0] = 0;
+        break; }
     case A_REFRESH: u->last_sample = 0; break;
     case A_SPEED_HIGH: u->interval_ms = 500; u->paused = 0; break;
     case A_SPEED_NORMAL: u->interval_ms = 1000; u->paused = 0; break;
@@ -1232,11 +1335,22 @@ static int move_sel(UI *u, int delta, int absolute)
 static int event_dialog(UI *u, const Event *e)
 {
     if (e->type == EV_MOUSE_MOVE) return 1;
+    if (e->type == EV_CHAR && u->dlg == DLG_RUN) {
+        if (e->mods & KM_CTRL) return 0;
+        if (e->ch >= 32 && e->ch < 127 && u->nrun < (int)sizeof u->run - 1) { u->run[u->nrun++] = (char)e->ch; u->run[u->nrun] = 0; }
+        return 1;
+    }
     if (e->type == EV_KEY) {
         if (e->key == K_ESC) { u->dlg = DLG_NONE; return 1; }
+        if (u->dlg == DLG_RUN) {
+            if (e->key == K_BS) { if (u->nrun) u->run[--u->nrun] = 0; return 1; }
+            if (e->key == K_ENTER) { run_task(u); return 1; }
+            return 0;
+        }
         if (e->key == K_ENTER) {
             if (u->dlg == DLG_END) do_kill(u, u->dlg_pid, 0);
             else if (u->dlg == DLG_END_TREE) do_kill(u, u->dlg_pid, 1);
+            else if (u->dlg == DLG_END_CRIT) { if (e->mods & KM_CTRL) do_kill(u, u->dlg_pid, u->dlg_tree); else u->dlg = DLG_NONE; }   /* Enter = Cancel here */
             else u->dlg = DLG_NONE;
             return 1;
         }
@@ -1247,7 +1361,9 @@ static int event_dialog(UI *u, const Event *e)
         if (inr(u->r_dlg_btn[0], e->x, e->y)) {
             if (u->dlg == DLG_END) do_kill(u, u->dlg_pid, 0);
             else if (u->dlg == DLG_END_TREE) do_kill(u, u->dlg_pid, 1);
-            else if (u->dlg == DLG_PROPS) { u->dlg = DLG_END; }
+            else if (u->dlg == DLG_END_CRIT) do_kill(u, u->dlg_pid, u->dlg_tree);
+            else if (u->dlg == DLG_PROPS) open_dialog(u, DLG_END, u->dlg_pid);
+            else if (u->dlg == DLG_RUN) run_task(u);
             return 1;
         }
     }
@@ -1403,6 +1519,7 @@ int ui_event(UI *u, const Event *e)
         if (e->mods & KM_CTRL) {
             switch (c) {
             case 'q': return -1;
+            case 'n': return do_action(u, A_RUN);
             case 't': return do_action(u, A_TREE);
             case 'k': return do_action(u, A_KERNEL);
             case 'u': return do_action(u, A_ONLYME);
@@ -1527,4 +1644,10 @@ void ui_test_inject(UI *u, double drd, double dwr, double nrx, double ntx)
     push_hist(u->hnrx, u->hpos, (float)nrx); push_hist(u->hntx, u->hpos, (float)ntx);
     push_hist(u->hcpu, u->hpos, u->cpu_pct); push_hist(u->hmem, u->hpos, u->sys.mem_total ? 100.f * u->sys.mem_used / u->sys.mem_total : 0);
     u->hpos = (u->hpos + 1) % HIST; if (u->hcount < HIST) u->hcount++;
+}
+
+/* test hook: rename a live process in the current snapshot (to simulate a shell process) */
+void ui_test_rename(UI *u, int pid, const char *name)
+{
+    Proc *p = find_proc(u, pid); if (p) snprintf(p->name, sizeof p->name, "%s", name);
 }

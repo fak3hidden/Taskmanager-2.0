@@ -70,7 +70,9 @@ typedef struct {
 int      sys_init(Sys *s);                         /* static info, once */
 void     sys_sample(Sys *s);                       /* dynamic counters */
 int      sys_procs(Proc **arr, int *n, int *cap);  /* fresh process list */
-int      sys_kill(int pid);                        /* 0 = ok */
+int      sys_kill(int pid, uint64_t start);        /* 0 = ok; refuses if the pid's start stamp != start (pid reuse) */
+int      sys_self_pid(void);
+int      sys_spawn(const char *cmdline);            /* start a detached program; 0 = ok */
 uint64_t sys_now_ns(void);
 int      sys_username(uint32_t uid, char *buf, int n);
 
@@ -189,6 +191,8 @@ typedef struct { int tab, perf_page, nview, nproc, sel_pid, dlg, menu_open, ctx_
 void ui_state(UI *u, UIState *st);
 int  ui_view_pid(UI *u, int row);                  /* pid at visible row, -1 if none */
 int  ui_view_depth(UI *u, int row);
+int  proc_is_child_of(const Proc *c, const Proc *parent);   /* ppid match AND parent older than child (defeats pid reuse) */
+int  proc_protected(const Proc *p);                         /* 1 = shell/session-critical (never killed implicitly) */
 void ui_hit_rects(UI *u, Rect *tabs3, Rect *end_btn, Rect *tree_btn, Rect *hdr, Rect *body, int *row_h);
 
 /* helpers */

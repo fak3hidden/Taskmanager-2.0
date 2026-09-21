@@ -66,6 +66,39 @@ static void test_gfx(void)
     CHECK(px[15] == 0);
 }
 
+static void test_safety(void)
+{
+    /* 1. sys_kill refuses a wrong start stamp (pid reuse) and refuses pid 1 / self */
+    pid_t c = fork(); if (c == 0) { execl("/bin/sleep", "sleep", "30", (char *)NULL); _exit(1); }
+    usleep(100000);
+    CHECK(sys_kill((int)c, 123456789ull) == -2);                 /* wrong stamp: refused, child still alive */
+    CHECK(kill(c, 0) == 0);
+    CHECK(sys_kill(1, 0) == -1);
+    CHECK(sys_kill(getpid(), 0) == -1);
+    Proc *p = NULL; int n = 0, cap = 0; sys_procs(&p, &n, &cap);
+    uint64_t st = 0; for (int i = 0; i < n; i++) if (p[i].pid == (int)c) st = p[i].start;
+    CHECK(st != 0);
+    CHECK(sys_kill((int)c, st) == 0);                              /* right stamp: killed */
+    int status; usleep(50000); CHECK(waitpid(c, &status, WNOHANG) == c);
+    free(p);
+    /* 2. protected names */
+    Proc q; memset(&q, 0, sizeof q); q.pid = 1234;
+    snprintf(q.name, sizeof q.name, "explorer.exe"); CHECK(proc_protected(&q));
+    snprintf(q.name, sizeof q.name, "Explorer.EXE"); CHECK(proc_protected(&q));
+    snprintf(q.name, sizeof q.name, "dwm.exe"); CHECK(proc_protected(&q));
+    snprintf(q.name, sizeof q.name, "gnome-shell"); CHECK(proc_protected(&q));
+    snprintf(q.name, sizeof q.name, "WindowServer"); CHECK(proc_protected(&q));
+    snprintf(q.name, sizeof q.name, "notepad.exe"); CHECK(!proc_protected(&q));
+    snprintf(q.name, sizeof q.name, "sleep"); CHECK(!proc_protected(&q));
+    snprintf(q.name, sizeof q.name, "sleep"); q.pid = 1; CHECK(proc_protected(&q));
+    /* 3. parent link rejected when the "parent" is younger than the child (recycled pid) */
+    Proc par, ch; memset(&par, 0, sizeof par); memset(&ch, 0, sizeof ch);
+    par.pid = 500; par.start = 1000; ch.pid = 600; ch.ppid = 500; ch.start = 2000;
+    CHECK(proc_is_child_of(&ch, &par));
+    par.start = 3000; CHECK(!proc_is_child_of(&ch, &par));
+    ch.ppid = 501; par.start = 1000; CHECK(!proc_is_child_of(&ch, &par));
+}
+
 static void test_sys(void)
 {
     Sys s; CHECK(sys_init(&s) == 0);
@@ -184,6 +217,39 @@ static void test_ui(void)
     ui_force_sample(u); ui_state(u, &st); CHECK(st.nview == 0);   /* search still active; child gone */
     e = ev_key(K_ESC, 0); ui_event(u, &e);
 
+    /* a protected (shell-like) child must survive "End process tree" and get the red dialog on direct end */
+    {
+        extern void ui_test_rename(UI *, int, const char *);
+        pid_t c2 = fork();
+        if (c2 == 0) { execl("/bin/sh", "sh", "-c", "sleep 30 & sleep 30 & wait", (char *)NULL); _exit(1); }
+        usleep(200000); ui_force_sample(u);
+        Proc *pl = NULL; int pn = 0, pc = 0; sys_procs(&pl, &pn, &pc);
+        int kid = -1; for (int i = 0; i < pn; i++) if (pl[i].ppid == (int)c2) { kid = pl[i].pid; break; }
+        free(pl); CHECK(kid > 0);
+        ui_test_rename(u, kid, "explorer.exe");
+        e = ev_key(K_ESC, 0); ui_event(u, &e);
+        char ps[16]; snprintf(ps, sizeof ps, "%d", (int)c2); type_str(u, ps); ui_state(u, &st); CHECK(st.nview == 1);
+        e = ev_key(K_DOWN, 0); ui_event(u, &e); ui_state(u, &st); CHECK(st.sel_pid == (int)c2);
+        e = ev_key(K_DEL, KM_SHIFT); ui_event(u, &e); ui_state(u, &st); CHECK(st.dlg == 2);
+        e = ev_key(K_ENTER, 0); ui_event(u, &e); ui_state(u, &st); CHECK(st.dlg == 0);
+        usleep(100000);
+        CHECK(waitpid(c2, &status, WNOHANG) == c2);        /* the sh parent died... */
+        CHECK(kill(kid, 0) == 0);                          /* ...but the "explorer.exe" child was spared */
+        e = ev_key(K_ESC, 0); ui_event(u, &e); ui_force_sample(u); ui_test_rename(u, kid, "explorer.exe");
+        snprintf(ps, sizeof ps, "%d", kid); type_str(u, ps); ui_state(u, &st); CHECK(st.nview == 1);
+        e = ev_key(K_DOWN, 0); ui_event(u, &e); ui_state(u, &st); CHECK(st.sel_pid == kid);
+        e = ev_key(K_DEL, 0); ui_event(u, &e); ui_state(u, &st); CHECK(st.dlg == 6 /* END_CRIT */); ui_draw(u);
+        e = ev_key(K_ENTER, 0); ui_event(u, &e); ui_state(u, &st); CHECK(st.dlg == 0);
+        CHECK(kill(kid, 0) == 0);                          /* plain Enter cancels, does not kill */
+        e = ev_key(K_DEL, 0); ui_event(u, &e); e = ev_key(K_ENTER, KM_CTRL); ui_event(u, &e); ui_state(u, &st); CHECK(st.dlg == 0);
+        usleep(100000); CHECK(kill(kid, 0) != 0);         /* Ctrl+Enter = End anyway */
+        e = ev_key(K_ESC, 0); ui_event(u, &e);
+    }
+    /* Run new task dialog */
+    e = ev_char('n', KM_CTRL); ui_event(u, &e); ui_state(u, &st); CHECK(st.dlg == 7 /* RUN */); ui_draw(u);
+    type_str(u, "definitely-not-a-program-xyz"); e = ev_key(K_ENTER, 0); ui_event(u, &e); ui_state(u, &st); CHECK(st.dlg == 5 /* ERROR */); ui_draw(u);
+    e = ev_key(K_ESC, 0); ui_event(u, &e); ui_state(u, &st); CHECK(st.dlg == 0);
+
     /* performance tab pages & per-core toggle */
     e = ev_char('2', KM_CTRL); ui_event(u, &e); ui_state(u, &st); CHECK(st.tab == 1);
     e = ev_key(K_DOWN, 0); ui_event(u, &e); ui_state(u, &st); CHECK(st.perf_page == 1);
@@ -291,7 +357,7 @@ static void test_bmp(void)
 
 int main(void)
 {
-    test_fmt(); test_gfx(); test_png(); test_icons(); test_sys(); test_bmp(); test_ui();
+    test_fmt(); test_gfx(); test_png(); test_icons(); test_sys(); test_safety(); test_bmp(); test_ui();
     printf("%d checks, %d failures\n", checks, fails);
     return fails ? 1 : 0;
 }

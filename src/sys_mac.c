@@ -15,6 +15,8 @@
 #include <sys/resource.h>
 #include <sys/utsname.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 #include <mach/mach.h>
 #include <mach/mach_host.h>
 #include <mach/processor_info.h>
@@ -169,7 +171,33 @@ int sys_procs(Proc **arr, int *n, int *cap)
     return 0;
 }
 
-int sys_kill(int pid) { if (kill(pid, SIGTERM) == 0) return 0; return kill(pid, SIGKILL); }
+int sys_self_pid(void) { return (int)getpid(); }
+
+int sys_spawn(const char *cmdline)
+{
+    pid_t c = fork();
+    if (c < 0) return -1;
+    if (c == 0) {
+        setsid(); if (fork() != 0) _exit(0);
+        int fd = open("/dev/null", O_RDWR); if (fd >= 0) { dup2(fd, 0); dup2(fd, 1); dup2(fd, 2); if (fd > 2) close(fd); }
+        /* "open -a Name" for app bundles, else a shell command line */
+        if (!strchr(cmdline, '/') && !strchr(cmdline, ' ') && !strchr(cmdline, '.')) execl("/usr/bin/open", "open", "-a", cmdline, (char *)NULL);
+        execl("/bin/sh", "sh", "-c", cmdline, (char *)NULL); _exit(127);
+    }
+    int st; waitpid(c, &st, 0);
+    return 0;
+}
+int sys_kill(int pid, uint64_t start)
+{
+    if (pid <= 1 || pid == getpid()) return -1;
+    if (start) {
+        struct proc_taskallinfo ti;
+        if (proc_pidinfo(pid, PROC_PIDTASKALLINFO, 0, &ti, sizeof ti) != (int)sizeof ti) return -2;
+        if ((uint64_t)ti.pbsd.pbi_start_tvsec != start) return -2;   /* pid was reused */
+    }
+    if (kill(pid, SIGTERM) == 0) return 0;
+    return kill(pid, SIGKILL);
+}
 
 /* ---- application icons: NSWorkspace iconForFile: via the objc runtime ------- */
 #include <dlfcn.h>

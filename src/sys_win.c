@@ -10,6 +10,7 @@
 #include <netioapi.h>
 #include <powerbase.h>
 #include <sddl.h>
+#include <shellapi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -229,17 +230,37 @@ int sys_procs(Proc **arr, int *n, int *cap)
     return 0;
 }
 
-int sys_kill(int pid)
+int sys_self_pid(void) { return (int)GetCurrentProcessId(); }
+
+int sys_spawn(const char *cmdline)
 {
-    HANDLE h = OpenProcess(PROCESS_TERMINATE, FALSE, (DWORD)pid);
+    /* CreateProcess handles "prog args"; fall back to ShellExecute for documents / folders / URLs */
+    char cmd[1024]; snprintf(cmd, sizeof cmd, "%s", cmdline);
+    STARTUPINFOA si; PROCESS_INFORMATION pi; memset(&si, 0, sizeof si); si.cb = sizeof si;
+    if (CreateProcessA(NULL, cmd, NULL, NULL, FALSE, CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS, NULL, NULL, &si, &pi)) {
+        CloseHandle(pi.hThread); CloseHandle(pi.hProcess); return 0;
+    }
+    return (intptr_t)ShellExecuteA(NULL, "open", cmdline, NULL, NULL, SW_SHOWNORMAL) > 32 ? 0 : -1;
+}
+
+int sys_kill(int pid, uint64_t start)
+{
+    if (pid <= 4 || pid == (int)GetCurrentProcessId()) return -1;   /* Idle / System / ourselves */
+    HANDLE h = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, (DWORD)pid);
     if (!h) return -1;
+    if (start) {
+        /* the pid must still belong to the process the user was shown (Windows recycles pids fast) */
+        FILETIME c, e, k, u;
+        if (!GetProcessTimes(h, &c, &e, &k, &u)) { CloseHandle(h); return -2; }
+        uint64_t ct = ((uint64_t)c.dwHighDateTime << 32) | c.dwLowDateTime;
+        if (ct != start) { CloseHandle(h); return -2; }
+    }
     int ok = TerminateProcess(h, 1) ? 0 : -1;
     CloseHandle(h);
     return ok;
 }
 
 /* ---- application icons: extract from the executable ----------------------- */
-#include <shellapi.h>
 int os_icon_load(const Proc *p, int size, uint32_t *out)
 {
     if (p->pid <= 4 || !strchr(p->cmd, '\\')) return 0;

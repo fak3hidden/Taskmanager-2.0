@@ -56,6 +56,25 @@ anti-aliased font, baked in so nothing needs to be installed).
 ![Performance](docs/performance.png)
 ![Details](docs/details.png)
 
+## Safety: ending processes
+
+Windows recycles process IDs aggressively, and a naive "kill this pid" can hit the wrong
+process (in one report, ending a full-screen game took the desktop shell down with it).
+Task Manager 2.0 therefore:
+
+- **verifies the process identity before every kill** – the pid must still carry the same
+  start timestamp it had when it was shown; if the pid was reused the kill is refused;
+- **validates parent links** – a child is only treated as part of a tree when its parent
+  is older than it, so a stale ppid pointing at a newer unrelated process is ignored;
+- **never ends session-critical processes implicitly** (`explorer.exe`, `dwm.exe`,
+  `csrss.exe`, `winlogon.exe`, `svchost.exe`, `gnome-shell`, `kwin`, `Xorg`, `WindowServer`,
+  `Dock`, `Finder`, `launchd`, …). They are skipped by *End process tree*, and a direct
+  *End task* shows a red warning where Enter cancels – only **End anyway** / Ctrl+Enter proceeds;
+- refuses to end itself, pid 0/1/4 and kernel threads.
+
+If a shell ever does get taken out, **File ▸ Run new task** (Ctrl+N) lets you start
+`explorer.exe` again, and on Windows there is a one-click **File ▸ Restart Windows Explorer**.
+
 ## How it stays this small
 
 * Written in plain C11, ~3 000 lines, no frameworks, no runtime, no bundled browser.
@@ -148,6 +167,6 @@ src/win_x11.c    X11 window via dlopen (no headers / libs needed at build time)
 src/win_w32.c    Win32 window + GDI blit
 src/win_mac.c    Cocoa window via objc_msgSend (no SDK needed at build time)
 src/main.c       argument parsing and event loop
-tests/           unit tests (417 checks) + CLI integration tests + PNG fixtures
+tests/           unit tests (452 checks) + CLI integration tests + PNG fixtures
 tools/bakefont.py rasterises a TTF into src/fontdata.h (dependency-free)
 ```

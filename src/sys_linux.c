@@ -10,6 +10,8 @@
 #include <ctype.h>
 #include <sys/utsname.h>
 #include <sys/sysinfo.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 
 static long clk_tck = 100;
 static long page = 4096;
@@ -322,8 +324,45 @@ int sys_procs(Proc **arr, int *n, int *cap)
     return 0;
 }
 
-int sys_kill(int pid)
+static uint64_t proc_start_of(int pid)
 {
+    char path[64], buf[1024]; snprintf(path, sizeof path, "/proc/%d/stat", pid);
+    FILE *f = fopen(path, "r"); if (!f) return 0;
+    size_t n = fread(buf, 1, sizeof buf - 1, f); fclose(f); buf[n] = 0;
+    char *rp = strrchr(buf, ')'); if (!rp) return 0;
+    /* field 22 (starttime) is the 20th field after the ')' */
+    char *t = rp + 2; for (int i = 0; i < 19 && t; i++) { t = strchr(t, ' '); if (t) t++; }
+    return t ? (uint64_t)strtoull(t, NULL, 10) : 0;
+}
+
+int sys_self_pid(void) { return (int)getpid(); }
+
+int sys_spawn(const char *cmdline)
+{
+    /* check the program exists first so we can report a failure synchronously */
+    char prog[256]; snprintf(prog, sizeof prog, "%s", cmdline); char *sp = strchr(prog, ' '); if (sp) *sp = 0;
+    int ok = 0;
+    if (strchr(prog, '/')) ok = access(prog, X_OK) == 0;
+    else { const char *path = getenv("PATH"); if (!path) path = "/usr/bin:/bin";
+        char buf[512]; const char *a = path;
+        while (*a && !ok) { const char *b = strchr(a, ':'); size_t L = b ? (size_t)(b - a) : strlen(a);
+            snprintf(buf, sizeof buf, "%.*s/%s", (int)L, a, prog); ok = access(buf, X_OK) == 0; a = b ? b + 1 : a + L; } }
+    if (!ok) return -1;
+    pid_t c = fork();
+    if (c < 0) return -1;
+    if (c == 0) {
+        setsid(); if (fork() != 0) _exit(0);                     /* double fork: reparent to init, no zombie */
+        int fd = open("/dev/null", O_RDWR); if (fd >= 0) { dup2(fd, 0); dup2(fd, 1); dup2(fd, 2); if (fd > 2) close(fd); }
+        execl("/bin/sh", "sh", "-c", cmdline, (char *)NULL); _exit(127);
+    }
+    int st; waitpid(c, &st, 0);
+    return 0;
+}
+
+int sys_kill(int pid, uint64_t start)
+{
+    if (pid <= 1 || pid == getpid()) return -1;
+    if (start && proc_start_of(pid) != start) return -2;     /* not the process we were shown */
     if (kill(pid, SIGTERM) == 0) return 0;
     return kill(pid, SIGKILL);
 }
@@ -332,6 +371,8 @@ int sys_kill(int pid)
  * Resolve the executable to a freedesktop .desktop entry (by Exec= basename or
  * by file name), read its Icon= and load a PNG from the hicolor / theme dirs. */
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/wait.h>
 
 static const char *icon_dirs[] = { "/usr/share/icons", "/usr/local/share/icons", "/var/lib/flatpak/exports/share/icons", "/snap/current/usr/share/icons", NULL };
 static const char *app_dirs[] = { "/usr/share/applications", "/usr/local/share/applications", "/var/lib/flatpak/exports/share/applications", "/var/lib/snapd/desktop/applications", NULL };
