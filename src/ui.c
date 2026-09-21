@@ -484,45 +484,85 @@ static void checkbox_mark(UI *u, int x, int y, uint32_t c)
     gfx_line_aa(g, x, y + P(5), x + P(3), y + P(8), c); gfx_line_aa(g, x + P(3), y + P(8), x + P(8), y + P(2), c);
 }
 
-/* time-series graph */
+/* dashed anti-aliased polyline: dashes follow the path (arc length), not the samples */
+static void dashed_seg(Gfx *g, float x0, float y0, float x1, float y1, float *acc, uint32_t c)
+{
+    const float dash = 5.f, gap = 4.f, period = dash + gap;
+    float dx = x1 - x0, dy = y1 - y0, L = sqrtf(dx * dx + dy * dy);
+    if (L <= 0) return;
+    float pos = 0;
+    while (pos < L) {
+        float phase = fmodf(*acc + pos, period);
+        if (phase < dash) {
+            float end = pos + (dash - phase); if (end > L) end = L;
+            gfx_line_aa(g, x0 + dx * pos / L, y0 + dy * pos / L, x0 + dx * end / L, y0 + dy * end / L, c);
+            pos = end;
+        } else pos += period - phase;
+    }
+    *acc += L;
+}
+
+static float nice_bytes(float v, float minimum)
+{
+    /* like nice_max but in binary units: 1,2,5,10,20,50,100,200,500 KB/s, 1,2,5.. MB/s */
+    if (v < minimum) v = minimum;
+    float unit = 1;
+    while (v / unit >= 1000 && unit < (float)(1ull << 40)) unit *= 1024;
+    float m = v / unit, n = 1;
+    while (n < m) n = n < 2 ? 2 : n < 5 ? 5 : n < 10 ? 10 : n * 2 <= 20 ? 20 : n < 50 ? 50 : n < 100 ? 100 : n < 200 ? 200 : n < 500 ? 500 : 1000;
+    return n * unit;
+}
+
+/* time-series graph: a = filled primary series, b = optional dashed secondary series */
 static void graph(UI *u, Rect r, const float *a, const float *b, float max, uint32_t line, uint32_t fill, uint32_t grid, int mini)
 {
     Gfx *g = &u->g;
+    (void)fill;
     gfx_fill(g, r.x, r.y, r.w, r.h, C_PANEL);
-    int cells = mini ? 4 : 10;
-    for (int i = 1; i < cells; i++) {
-        gfx_vline(g, r.x + r.w * i / cells, r.y, r.h, grid);
-        if (!mini) gfx_hline(g, r.x, r.y + r.h * i / cells, r.w, grid);
-    }
+    if (!mini)
+        for (int i = 1; i < 10; i++) { gfx_vline(g, r.x + r.w * i / 10, r.y, r.h, grid); gfx_hline(g, r.x, r.y + r.h * i / 10, r.w, grid); }
     if (max <= 0) max = 1;
     int n = u->hcount;
-    gfx_clip(g, r.x + P(1), r.y + P(1), r.w - P(2), r.h - P(2));
-    for (int pass = 0; pass < 2; pass++) {
-        const float *h = pass ? b : a;
-        if (!h) continue;
-        float px = -1, py = -1;
-        for (int age = 0; age < HIST; age++) {
-            float x = r.x + r.w - 1 - (float)age * (r.w - 1) / (HIST - 1);
-            float v = age < n ? hist_at(h, u->hpos, u->hcount, age) : 0;
-            if (v > max) v = max;
-            float y = r.y + r.h - 1 - v / max * (r.h - 2);
-            if (!pass && age < n && px >= 0) {
-                int xi0 = (int)x, xi1 = (int)px;
-                for (int xi = xi0; xi <= xi1; xi++) {
-                    float t = px == x ? 0 : (xi - x) / (px - x), yy = y + (py - y) * t;
-                    gfx_fill(g, xi, (int)yy + 1, 1, r.y + r.h - (int)yy, fill);
+    int x0 = r.x + P(1), x1 = r.x + r.w - P(1), yb = r.y + r.h - P(1), top = r.y + P(2);
+    float span = (float)(x1 - x0), hgt = (float)(yb - top);
+    gfx_clip(g, x0, r.y + P(1), x1 - x0, r.h - P(2));
+
+    /* primary: filled area (translucent so the grid shows through) then the line */
+    if (a && n > 1) {
+        int prevx = -1; float prevy = 0;
+        for (int age = 0; age < n; age++) {
+            float v = hist_at(a, u->hpos, n, age); if (v > max) v = max; if (v < 0) v = 0;
+            int x = x1 - (int)(age * span / (HIST - 1) + 0.5f);
+            float y = yb - v / max * hgt;
+            if (prevx >= 0) {
+                for (int xi = x; xi <= prevx; xi++) {
+                    float t = prevx == x ? 0 : (float)(xi - x) / (prevx - x);
+                    int yy = (int)(y + (prevy - y) * t + 0.5f);
+                    gfx_blend(g, xi, yy, 1, yb - yy + 1, line, 38);
                 }
             }
-            if (px >= 0 && age <= n) {
-                if (pass) { if ((age & 1) == 0) gfx_line_aa(g, px, py, x, y, line); }
-                else gfx_line_aa(g, px, py, x, y, line);
-            }
+            prevx = x; prevy = y;
+        }
+        float px = -1, py = 0;
+        for (int age = 0; age < n; age++) {
+            float v = hist_at(a, u->hpos, n, age); if (v > max) v = max; if (v < 0) v = 0;
+            float x = x1 - age * span / (HIST - 1), y = yb - v / max * hgt;
+            if (px >= 0) gfx_line_aa(g, px, py, x, y, line);
             px = x; py = y;
-            if (age >= n) break;
+        }
+    }
+    /* secondary: dashed line in the same colour */
+    if (b && n > 1) {
+        float px = -1, py = 0, acc = 0;
+        for (int age = 0; age < n; age++) {
+            float v = hist_at(b, u->hpos, n, age); if (v > max) v = max; if (v < 0) v = 0;
+            float x = x1 - age * span / (HIST - 1), y = yb - v / max * hgt;
+            if (px >= 0) dashed_seg(g, px, py, x, y, &acc, line);
+            px = x; py = y;
         }
     }
     gfx_noclip(g);
-    gfx_rect(g, r.x, r.y, r.w, r.h, gfx_lerp(line, C_PANEL, 0.35f));
+    gfx_rect(g, r.x, r.y, r.w, r.h, line);
 }
 
 /* ---- table drawing ---------------------------------------------------------- */
@@ -704,11 +744,11 @@ static void draw_perf(UI *u, Rect a)
     snprintf(sub[1], 48, "%s / %s (%.0f%%)", b1, b2, u->sys.mem_total ? 100.0 * u->sys.mem_used / u->sys.mem_total : 0);
     fmt_rate(b1, 24, u->drd); fmt_rate(b2, 24, u->dwr); snprintf(sub[2], 48, "R: %s  W: %s", b1, b2);
     fmt_rate(b1, 24, u->nrx); fmt_rate(b2, 24, u->ntx); snprintf(sub[3], 48, "R: %s  S: %s", b1, b2);
-    uint32_t lc[4] = { C_CPU, C_MEM, C_DISK, C_NET }, fc[4] = { C_CPUF, C_MEMF, C_DISKF, C_NETF }, gc[4] = { C_CPUG, C_MEMG, C_DISKG, C_NETG };
+    uint32_t lc[4] = { C_CPU, C_MEM, C_DISK, C_NET }, fc[4], gc[4];
+    for (int i = 0; i < 4; i++) { fc[i] = gfx_lerp(lc[i], C_PANEL, 0.85f); gc[i] = gfx_lerp(lc[i], C_PANEL, 0.82f); }
     float dmax = 1; for (int i = 0; i < u->hcount; i++) { float v = hist_at(u->hdrd, u->hpos, u->hcount, i) + hist_at(u->hdwr, u->hpos, u->hcount, i); if (v > dmax) dmax = v; }
     float nmax = 1; for (int i = 0; i < u->hcount; i++) { float v = hist_at(u->hnrx, u->hpos, u->hcount, i); float w = hist_at(u->hntx, u->hpos, u->hcount, i); if (v > nmax) nmax = v; if (w > nmax) nmax = w; }
-    float dm = dmax; if (dm < 1024 * 1024) dm = 1024 * 1024;
-    float nm = nmax; if (nm < 100 * 1024) nm = 100 * 1024;
+    float dm = nice_bytes(dmax, 1024 * 1024), nm = nice_bytes(nmax, 100 * 1024);
     for (int i = 0; i < 4; i++) {
         Rect it = R(a.x + P(8), a.y + P(8) + i * P(74), lw - P(12), P(70));
         u->r_perf[i] = it;
@@ -769,11 +809,12 @@ static void draw_perf(UI *u, Rect a)
         gfx_text(g, mx, gy + gh + P(5), secs, C_DIM);
         gfx_text_r(g, mx + mw, gy + gh + P(5), "0", C_DIM);
         if (hb) {
-            int lx = mx + mw - P(190), ly = gy + gh + P(5);
-            gfx_fill(g, lx, ly + P(7), P(16), P(2), lc[page]);
-            gfx_text(g, lx + P(22), ly, page == 2 ? "Read" : "Receive", C_DIM);
-            for (int i = 0; i < P(16); i += P(5)) gfx_fill(g, lx + P(92) + i, ly + P(7), P(3), P(2), lc[page]);
-            gfx_text(g, lx + P(114), ly, page == 2 ? "Write" : "Send", C_DIM);
+            int lx = mx + P(120), ly = gy + gh + P(5);
+            gfx_fill(g, lx, ly + P(7), P(18), P(2), lc[page]);
+            gfx_text(g, lx + P(24), ly, page == 2 ? "Read" : "Receive", C_DIM);
+            int dx = lx + P(24) + gfx_textw(g, page == 2 ? "Read" : "Receive") + P(18);
+            for (int i = 0; i < P(18); i += P(6)) gfx_fill(g, dx + i, ly + P(7), P(3), P(2), lc[page]);
+            gfx_text(g, dx + P(24), ly, page == 2 ? "Write" : "Send", C_DIM);
         }
     }
 
@@ -1476,4 +1517,14 @@ void ui_hit_rects(UI *u, Rect *tabs3, Rect *end_btn, Rect *tree_btn, Rect *hdr, 
     if (tabs3) memcpy(tabs3, u->r_tabs, sizeof u->r_tabs);
     if (end_btn) *end_btn = u->r_end; if (tree_btn) *tree_btn = u->r_tree;
     if (hdr) *hdr = t->hdr; if (body) *body = t->body; if (row_h) *row_h = P(t->row_h);
+}
+
+/* test hook: push one synthetic sample of rates into the history */
+void ui_test_inject(UI *u, double drd, double dwr, double nrx, double ntx)
+{
+    u->drd = drd; u->dwr = dwr; u->nrx = nrx; u->ntx = ntx;
+    push_hist(u->hdrd, u->hpos, (float)drd); push_hist(u->hdwr, u->hpos, (float)dwr);
+    push_hist(u->hnrx, u->hpos, (float)nrx); push_hist(u->hntx, u->hpos, (float)ntx);
+    push_hist(u->hcpu, u->hpos, u->cpu_pct); push_hist(u->hmem, u->hpos, u->sys.mem_total ? 100.f * u->sys.mem_used / u->sys.mem_total : 0);
+    u->hpos = (u->hpos + 1) % HIST; if (u->hcount < HIST) u->hcount++;
 }

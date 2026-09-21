@@ -34,7 +34,7 @@ anti-aliased font, baked in so nothing needs to be installed).
 - Filters: show kernel threads, only my processes
 
 **Performance tab**
-- CPU, Memory, Disk, Network graphs with 120-sample history, exactly like the original
+- CPU, Memory, Disk, Network graphs with a 60-second history, exactly like the original
 - CPU: utilization, clock speed, processes / threads / handles, up time, sockets, cores, load average
 - Per-logical-processor view (`Ctrl+L`)
 - Memory: in-use / available / committed / cached / swap with composition bar

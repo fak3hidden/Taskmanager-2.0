@@ -21,7 +21,7 @@
 
 #define TM_VERSION "2.0.0"
 #define MAX_CPUS   256
-#define HIST       120            /* samples kept per graph */
+#define HIST       60             /* samples kept per graph (Windows shows 60 s) */
 
 /* ------------------------------------------------------------------ */
 /* Platform data                                                       */
