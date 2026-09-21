@@ -1,1 +1,131 @@
-# Taskmanager-2.0
+# Task Manager 2.0
+
+A **Windows-Task-Manager-style system monitor** that is absurdly small:
+the whole application is a single native executable of **~60–115 KB** (not MB),
+uses **~2 MB of RAM** while running, and has **zero dependencies** to install.
+
+| Platform        | Binary                              | Size    |
+|-----------------|-------------------------------------|---------|
+| Linux x86-64    | `build/linux-x86_64/taskmgr`        | ~65 KB  |
+| Linux ARM64     | `build/linux-aarch64/taskmgr`       | ~58 KB  |
+| Windows x64     | `build/windows-x86_64/taskmgr.exe`  | ~114 KB |
+| macOS Intel     | `build/macos-x86_64/taskmgr`        | ~75 KB  |
+| macOS Apple Si. | `build/macos-aarch64/taskmgr`       | ~105 KB |
+
+That is roughly **10 000× under** the 1 GB budget.
+
+![Processes](docs/processes.png)
+
+## Features
+
+**Processes tab** – like the Windows 10/11 Task Manager
+- Live list of every process: name, PID, status, CPU %, memory, disk I/O rate, user, threads
+- Heat-map cells (the darker the orange, the heavier the load) and column totals in the header
+- Click any column header to sort; drag column borders to resize
+- **Tree view** (`Ctrl+T`) with collapsible parent/child nesting, expand/collapse all
+- Instant **search** – just start typing (matches name, command line, user or PID)
+- **End task** button, `Del` = end task, `Shift+Del` = end whole process tree (with confirmation)
+- Right-click **context menu**: End task, End process tree, Go to details, Properties
+- **Properties** dialog (`Enter` / double-click) with full command line, priority, I/O totals…
+- Filters: show kernel threads, only my processes
+
+**Performance tab**
+- CPU, Memory, Disk, Network graphs with 120-sample history, exactly like the original
+- CPU: utilization, clock speed, processes / threads / handles, up time, sockets, cores, load average
+- Per-logical-processor view (`Ctrl+L`)
+- Memory: in-use / available / committed / cached / swap with composition bar
+- Disk & Network: read/write / send/receive throughput with dual line graphs
+
+**Details tab**
+- 16 columns incl. CPU time, virtual size, handles, base priority, nice, I/O read/write, parent PID, command line
+- Horizontal + vertical scrolling, all columns sortable
+
+**General**
+- Update speed High (0.5 s) / Normal (1 s) / Low (4 s) / Paused (`Space`)
+- Keyboard-driven everything (`F10` menus, arrows, `Tab` cycles tabs, `Ctrl+1/2/3`)
+- HiDPI: auto 2× scaling (or `--scale 2`)
+- `--dump` prints a text snapshot (works over SSH, no display needed)
+- `--screenshot file.bmp` renders a frame headlessly
+
+![Performance](docs/performance.png)
+![Details](docs/details.png)
+
+## How it stays this small
+
+* Written in plain C11, ~3 000 lines, no frameworks, no runtime, no bundled browser.
+* The UI is **software-rendered** into a pixel buffer with its own 5×9 bitmap font; the
+  OS only has to blit the buffer (`XPutImage`, `SetDIBitsToDevice`, `CGImage`).
+* On Linux, `libX11` is loaded at runtime with `dlopen` – there is no link-time dependency at all,
+  so the binary runs on any distro (also under XWayland). On macOS the same trick is used for
+  AppKit through the Objective-C runtime, so it can be cross-compiled without an Apple SDK.
+* Data comes straight from the kernel: `/proc` on Linux, `NtQuerySystemInformation` on Windows
+  (one syscall for all processes – the same thing the real Task Manager uses), `libproc` / Mach
+  on macOS.
+* Compiled with `-Os`, dead-code elimination, and stripped.
+
+## Building
+
+**Native (host platform)**
+
+```sh
+make            # -> build/taskmgr  (Linux / macOS; needs only cc + make)
+make test       # unit + integration tests (Linux)
+```
+
+On Windows with MinGW / MSYS2:
+
+```sh
+gcc -Os -std=c11 -o taskmgr.exe src/main.c src/ui.c src/gfx.c src/font.c src/sys_win.c src/win_w32.c ^
+    -Wl,--subsystem,windows -lgdi32 -luser32 -ladvapi32 -liphlpapi -lpowrprof -s
+```
+
+**All five platforms at once** (from any OS, using `zig cc` as the cross-compiler):
+
+```sh
+pip install ziglang               # or install zig from ziglang.org
+make all-cross ZIG="python3 -m ziglang"
+```
+
+## Usage
+
+```
+taskmgr [--scale N] [--interval MS] [--tab 0|1|2] [--size WxH]
+taskmgr --dump                  # text snapshot to stdout, no window
+taskmgr --screenshot out.bmp    # render one frame headlessly
+```
+
+| Key                  | Action                                  |
+|----------------------|-----------------------------------------|
+| `Tab` / `Shift+Tab`  | next / previous tab                     |
+| type text            | search (Esc clears)                     |
+| `↑ ↓ PgUp PgDn Home End` | select process                      |
+| `Enter`              | properties                              |
+| `Del` / `Shift+Del`  | end task / end process tree             |
+| `← →`                | collapse / expand tree node, h-scroll   |
+| `Ctrl+T`             | tree view                               |
+| `Ctrl+K`             | show kernel threads                     |
+| `Ctrl+U`             | only my processes                       |
+| `Ctrl+L`             | per-core CPU graphs                     |
+| `Space`              | pause updates                           |
+| `F5`                 | refresh now                             |
+| `F10`                | open menu bar                           |
+| `Ctrl+Q`             | quit                                    |
+
+Ending processes you don't own requires root / Administrator, exactly like the original.
+
+## Layout
+
+```
+src/tm.h         shared types & the three internal APIs (sys_*, win_*, gfx/ui)
+src/ui.c         the task manager itself: tabs, tables, tree, graphs, menus, dialogs
+src/gfx.c        software rasteriser (fill, line, clip, text)
+src/font.c       5x9 bitmap font, ASCII 32..126
+src/sys_linux.c  /proc + /sys data collection
+src/sys_win.c    NtQuerySystemInformation, psapi, iphlpapi, IOCTL_DISK_PERFORMANCE
+src/sys_mac.c    libproc, mach host statistics, sysctl, getifaddrs
+src/win_x11.c    X11 window via dlopen (no headers / libs needed at build time)
+src/win_w32.c    Win32 window + GDI blit
+src/win_mac.c    Cocoa window via objc_msgSend (no SDK needed at build time)
+src/main.c       argument parsing and event loop
+tests/           unit tests (287 checks) + CLI integration tests
+```

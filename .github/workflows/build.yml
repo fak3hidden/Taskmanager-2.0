@@ -1,0 +1,40 @@
+name: build
+on: [push, pull_request]
+jobs:
+  linux-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test
+      - run: ls -la build/taskmgr
+  cross:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install ziglang
+      - run: make all-cross ZIG="python -m ziglang"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: taskmgr-all-platforms
+          path: |
+            build/linux-x86_64/taskmgr
+            build/linux-aarch64/taskmgr
+            build/windows-x86_64/taskmgr.exe
+            build/macos-x86_64/taskmgr
+            build/macos-aarch64/taskmgr
+  windows-native:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gcc -Os -std=c11 -o taskmgr.exe src/main.c src/ui.c src/gfx.c src/font.c src/sys_win.c src/win_w32.c -Wl,--subsystem,windows -lgdi32 -luser32 -ladvapi32 -liphlpapi -lpowrprof -s
+      - run: .\taskmgr.exe --dump
+      - run: .\taskmgr.exe --screenshot shot.bmp --tab 1
+  macos-native:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make
+      - run: ./build/taskmgr --dump
+      - run: ./build/taskmgr --screenshot shot.bmp --tab 1
