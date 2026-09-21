@@ -65,7 +65,19 @@ That is roughly **10 000× under** the 1 GB budget.
 
 ## Building
 
-**Native (host platform)**
+**Easiest: the build script** (asks which OS you want, works from Windows, macOS or Linux)
+
+```sh
+python3 build.py              # interactive menu: Linux / Windows / macOS / all
+python3 build.py windows      # or name the target directly
+python3 build.py all
+```
+
+It uses your normal C compiler when building for the machine you're on, and
+`zig cc` for other operating systems (it offers to `pip install ziglang` if needed).
+Output lands in `build/<os>/`.
+
+**Native with make (host platform)**
 
 ```sh
 make            # -> build/taskmgr  (Linux / macOS; needs only cc + make)
