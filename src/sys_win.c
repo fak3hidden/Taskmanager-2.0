@@ -237,3 +237,40 @@ int sys_kill(int pid)
     CloseHandle(h);
     return ok;
 }
+
+/* ---- application icons: extract from the executable ----------------------- */
+#include <shellapi.h>
+int os_icon_load(const Proc *p, int size, uint32_t *out)
+{
+    if (p->pid <= 4 || !strchr(p->cmd, '\\')) return 0;
+    HICON hi = NULL;
+    int want_big = size > 20;
+    UINT n = ExtractIconExA(p->cmd, 0, want_big ? &hi : NULL, want_big ? NULL : &hi, 1);
+    if (n == 0 || !hi) {
+        SHFILEINFOA sfi; memset(&sfi, 0, sizeof sfi);
+        if (!SHGetFileInfoA(p->cmd, 0, &sfi, sizeof sfi, SHGFI_ICON | (want_big ? SHGFI_LARGEICON : SHGFI_SMALLICON))) return 0;
+        hi = sfi.hIcon;
+    }
+    ICONINFO ii; if (!GetIconInfo(hi, &ii)) { DestroyIcon(hi); return 0; }
+    BITMAP bm; GetObject(ii.hbmColor ? ii.hbmColor : ii.hbmMask, sizeof bm, &bm);
+    int w = bm.bmWidth, h = ii.hbmColor ? bm.bmHeight : bm.bmHeight / 2;
+    if (w <= 0 || h <= 0 || w > 256 || h > 256) { DeleteObject(ii.hbmColor); DeleteObject(ii.hbmMask); DestroyIcon(hi); return 0; }
+    uint32_t *px = malloc((size_t)w * h * 4), *mask = malloc((size_t)w * h * 4);
+    BITMAPINFO bi; memset(&bi, 0, sizeof bi);
+    bi.bmiHeader.biSize = sizeof bi.bmiHeader; bi.bmiHeader.biWidth = w; bi.bmiHeader.biHeight = -h;
+    bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
+    HDC dc = GetDC(NULL);
+    int ok = 0;
+    if (ii.hbmColor && GetDIBits(dc, ii.hbmColor, 0, h, px, &bi, DIB_RGB_COLORS) == h) {
+        int has_alpha = 0; for (int i = 0; i < w * h; i++) if (px[i] >> 24) { has_alpha = 1; break; }
+        if (!has_alpha && ii.hbmMask && GetDIBits(dc, ii.hbmMask, 0, h, mask, &bi, DIB_RGB_COLORS) == h)
+            for (int i = 0; i < w * h; i++) px[i] = (mask[i] & 0xffffff) ? (px[i] & 0xffffff) : (px[i] | 0xff000000);
+        else if (!has_alpha) for (int i = 0; i < w * h; i++) px[i] |= 0xff000000;
+        icon_scale(px, w, h, out, size); ok = 1;
+    }
+    ReleaseDC(NULL, dc);
+    free(px); free(mask);
+    if (ii.hbmColor) DeleteObject(ii.hbmColor); if (ii.hbmMask) DeleteObject(ii.hbmMask);
+    DestroyIcon(hi);
+    return ok;
+}

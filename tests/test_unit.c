@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <stdlib.h>
 
 static int fails, checks;
 #define CHECK(c) do { checks++; if (!(c)) { fails++; fprintf(stderr, "  FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); } } while (0)
@@ -39,19 +40,30 @@ static void test_gfx(void)
     /* out of bounds must not crash */
     gfx_fill(&g, -100, -100, 500, 500, 0xff0000ff); gfx_line(&g, -5, -5, 40, 40, 0xffffffff);
     gfx_text(&g, -3, -3, "Hello", 0xffffffff); gfx_text(&g, 14, 14, "xyz", 0xffffffff);
-    CHECK(gfx_textw(&g, "abc") == 3 * FONT_ADV);
+    CHECK(gfx_textw(&g, "abc") > 0); CHECK(gfx_textw(&g, "iii") < gfx_textw(&g, "WWW"));   /* proportional */
+    CHECK(gfx_textw(&g, "") == 0); CHECK(gfx_fonth(&g) >= 12);
+    gfx_font(&g, F_BIG); CHECK(gfx_fonth(&g) > 16); gfx_font(&g, F_BOLD); CHECK(gfx_textw(&g, "Hello") >= 20); gfx_font(&g, F_UI);
+    /* rounded rect: corners transparent-ish, centre solid */
+    gfx_fill(&g, 0, 0, 16, 16, 0xff000000); gfx_rrect(&g, 0, 0, 16, 16, 6, 0xffffffff);
+    CHECK(px[0] == 0xff000000); CHECK(px[8 * 16 + 8] == 0xffffffff); CHECK(px[8] == 0xffffffff);
+    gfx_line_aa(&g, -10, -10, 30, 30, 0xffff0000);  /* off-canvas must not crash */
+    gfx_rrect_a(&g, -5, -5, 30, 30, 8, 0xff00ff00, 128);
     CHECK(gfx_lerp(0xff000000, 0xffffffff, 0.5f) == 0xff7f7f7f);
     CHECK(gfx_lerp(0xffff0000, 0xff0000ff, 0.0f) == 0xffff0000);
     CHECK(gfx_lerp(0xffff0000, 0xff0000ff, 1.0f) == 0xff0000ff);
     CHECK(gfx_lerp(0xfffff5df, 0xffffd07a, 0.3f) != 0xffffffff);
-    /* every glyph has 45 cells */
-    for (int i = 0; i < 95; i++) CHECK(strlen(tm_font[i]) == FONT_W * FONT_H);
-    /* font renders something for every printable char */
-    for (int c = 33; c < 127; c++) {
-        gfx_fill(&g, 0, 0, 16, 16, 0); char s[2] = { (char)c, 0 }; gfx_text(&g, 1, 1, s, 0xffffffff);
-        int lit = 0; for (int i = 0; i < 256; i++) lit += px[i] != 0;
-        CHECK(lit > 0);
+    /* font renders something for every printable char, at both scales */
+    for (int sc = 1; sc <= 2; sc++) {
+        uint32_t big[64 * 64]; Gfx g2; gfx_init(&g2, big, 64, 64, sc);
+        for (int c = 33; c < 127; c++) {
+            gfx_fill(&g2, 0, 0, 64, 64, 0); char s[2] = { (char)c, 0 }; gfx_text(&g2, 2, 2, s, 0xffffffff);
+            int lit = 0; for (int i = 0; i < 64 * 64; i++) lit += big[i] != 0;
+            CHECK(lit > 0);
+        }
     }
+    /* ellipsis clipping */
+    gfx_fill(&g, 0, 0, 16, 16, 0); gfx_text_clip(&g, 0, 0, 10, "a very long string", 0xffffffff);
+    CHECK(px[15] == 0);
 }
 
 static void test_sys(void)
@@ -110,9 +122,9 @@ static void test_ui(void)
     e = ev_key(K_HOME, 0); ui_event(u, &e); ui_state(u, &st); CHECK(st.sel_pid == ui_view_pid(u, 0));
     e = ev_key(K_ESC, 0); ui_event(u, &e); ui_state(u, &st); CHECK(st.sel_pid == -1);
 
-    /* sorting: click PID header (2nd column, x = 230 + 27) -> ascending by pid */
-    click(u, hdr.x + 230 + 27, hdr.y + hdr.h - 8, 1); ui_state(u, &st); CHECK(st.sort_col == 1 && st.sort_dir == -1);
-    click(u, hdr.x + 230 + 27, hdr.y + hdr.h - 8, 1); ui_state(u, &st); CHECK(st.sort_col == 1 && st.sort_dir == 1);
+    /* sorting: click PID header (2nd column, x = 260 + 30) -> descending then ascending by pid */
+    click(u, hdr.x + 260 + 30, hdr.y + hdr.h - 8, 1); ui_state(u, &st); CHECK(st.sort_col == 1 && st.sort_dir == -1);
+    click(u, hdr.x + 260 + 30, hdr.y + hdr.h - 8, 1); ui_state(u, &st); CHECK(st.sort_col == 1 && st.sort_dir == 1);
     CHECK(ui_view_pid(u, 0) < ui_view_pid(u, 1));
     /* name header -> ascending alpha */
     click(u, hdr.x + 20, hdr.y + hdr.h - 8, 1); ui_state(u, &st); CHECK(st.sort_col == 0 && st.sort_dir == 1);
@@ -201,6 +213,72 @@ static void test_ui(void)
     ui_destroy(u);
 }
 
+static uint32_t *load_png(const char *path, int *w, int *h)
+{
+    FILE *f = fopen(path, "rb"); if (!f) return NULL;
+    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
+    unsigned char *d = malloc(n); size_t r = fread(d, 1, n, f); fclose(f);
+    uint32_t *px = NULL; int rc = r == (size_t)n ? png_decode(d, r, &px, w, h) : -1; free(d);
+    return rc == 0 ? px : NULL;
+}
+
+static void test_png(void)
+{
+    int w, h; uint32_t *px;
+    px = load_png("tests/png/rgba8.png", &w, &h); CHECK(px != NULL);
+    if (px) { CHECK(w == 4 && h == 2); CHECK(px[0] == 0xffff0000); CHECK(px[1] == 0xff00ff00); CHECK(px[2] == 0xff0000ff); CHECK((px[3] >> 24) == 0);
+              CHECK(px[4] == 0xffffffff); CHECK(px[5] == 0xff000000); CHECK(px[6] == 0x80808080); CHECK(px[7] == 0xffffff00); free(px); }
+    px = load_png("tests/png/rgba16.png", &w, &h); CHECK(px != NULL);
+    if (px) { CHECK(w == 4 && h == 2); CHECK(px[0] == 0xffff0000); CHECK(px[6] == 0x80808080); CHECK(px[7] == 0xffffff00); free(px); }
+    px = load_png("tests/png/rgb8_filters.png", &w, &h); CHECK(px != NULL);
+    if (px) { CHECK(w == 2 && h == 4); for (int i = 0; i < 8; i++) CHECK(px[i] == 0xff0a141e); free(px); }
+    px = load_png("tests/png/pal2.png", &w, &h); CHECK(px != NULL);
+    if (px) { CHECK(w == 4 && h == 1); CHECK(px[0] == 0xffff0000); CHECK(px[1] == 0xff00ff00); CHECK(px[2] == 0xff0000ff); CHECK((px[3] >> 24) == 0); free(px); }
+    px = load_png("tests/png/gray1.png", &w, &h); CHECK(px != NULL);
+    if (px) { CHECK(w == 8); CHECK(px[0] == 0xffffffff); CHECK(px[1] == 0xff000000); CHECK(px[7] == 0xff000000); free(px); }
+    px = load_png("tests/png/ga8.png", &w, &h); CHECK(px != NULL);
+    if (px) { CHECK(px[0] == 0xffc8c8c8); CHECK(px[1] == 0x00323232); free(px); }
+    /* garbage must be rejected, not crash */
+    unsigned char junk[64] = { 137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 'I', 'H', 'D', 'R', 0, 0, 0, 4, 0, 0, 0, 4, 8, 6, 0, 0, 0 };
+    CHECK(png_decode(junk, sizeof junk, &px, &w, &h) != 0);
+    CHECK(png_decode(junk, 3, &px, &w, &h) != 0);
+    /* scaler: 4x4 solid -> 2x2 solid; checkerboard alpha averages */
+    uint32_t src[16]; for (int i = 0; i < 16; i++) src[i] = (i % 2) ? 0xffff0000 : 0x00000000;
+    uint32_t dst[4]; icon_scale(src, 4, 4, dst, 2);
+    for (int i = 0; i < 4; i++) { CHECK((dst[i] >> 24) == 127 || (dst[i] >> 24) == 128); CHECK((dst[i] & 0xffffff) == 0xff0000); }
+}
+
+static void test_icons(void)
+{
+    Proc p; memset(&p, 0, sizeof p);
+    strcpy(p.name, "bash"); strcpy(p.cmd, "/bin/bash"); CHECK(icon_generic_kind(&p) == IC_TERMINAL);
+    strcpy(p.name, "firefox"); strcpy(p.cmd, "/usr/lib/firefox/firefox"); CHECK(icon_generic_kind(&p) == IC_BROWSER);
+    strcpy(p.name, "python3"); CHECK(icon_generic_kind(&p) == IC_PYTHON);
+    strcpy(p.name, "kworker/0:1"); strcpy(p.cmd, "[kworker/0:1]"); CHECK(icon_generic_kind(&p) == IC_KERNEL);
+    strcpy(p.name, "systemd"); strcpy(p.cmd, "/sbin/init"); p.pid = 1; CHECK(icon_generic_kind(&p) == IC_SYSTEM);
+    strcpy(p.name, "sshd"); CHECK(icon_generic_kind(&p) == IC_SHIELD);
+    strcpy(p.name, "myapp"); strcpy(p.cmd, "/opt/myapp"); strcpy(p.user, "alice"); p.pid = 500; CHECK(icon_generic_kind(&p) == IC_APP);
+    strcpy(p.name, "cupsd"); strcpy(p.user, "root"); CHECK(icon_generic_kind(&p) == IC_SERVICE);
+    /* every generic kind renders with some opaque pixels at both sizes, and cache returns stable pointers */
+    uint32_t px[64 * 64]; Gfx g; gfx_init(&g, px, 64, 64, 1);
+    for (int k = 0; k < IC_COUNT; k++) {
+        for (int sz = 16; sz <= 32; sz += 16) {
+            gfx_fill(&g, 0, 0, 64, 64, 0xff000000);
+            Icon ic = { sz, NULL, k }; icon_draw(&g, 0, 0, &ic);
+            int lit = 0; for (int i = 0; i < 64 * 64; i++) lit += px[i] != 0xff000000;
+            CHECK(lit > sz * sz / 6);
+            CHECK(px[63 * 64 + 63] == 0xff000000);    /* stays inside its box */
+        }
+    }
+    strcpy(p.name, "bash");
+    const Icon *a = icon_for(&p, 16), *b = icon_for(&p, 16), *c = icon_for(&p, 32);
+    CHECK(a == b); CHECK(a != c); CHECK(a->size == 16 && c->size == 32); CHECK(a->kind == IC_TERMINAL);
+    /* real icon from theme dir if present on this machine */
+    strcpy(p.name, "debian-logo"); strcpy(p.cmd, "/usr/bin/debian-logo");
+    FILE *f = fopen("/usr/share/pixmaps/debian-logo.png", "rb");
+    if (f) { fclose(f); const Icon *d = icon_for(&p, 16); CHECK(d->px != NULL); }
+}
+
 static void test_bmp(void)
 {
     uint32_t px[4] = { 0xffff0000, 0xff00ff00, 0xff0000ff, 0xffffffff };
@@ -213,7 +291,7 @@ static void test_bmp(void)
 
 int main(void)
 {
-    test_fmt(); test_gfx(); test_sys(); test_bmp(); test_ui();
+    test_fmt(); test_gfx(); test_png(); test_icons(); test_sys(); test_bmp(); test_ui();
     printf("%d checks, %d failures\n", checks, fails);
     return fails ? 1 : 0;
 }

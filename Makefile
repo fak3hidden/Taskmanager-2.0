@@ -11,7 +11,7 @@ CFLAGS  ?= -Os -std=c11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-inde
 LDFLAGS ?= -s -Wl,--gc-sections
 OUT     ?= build
 
-COMMON  = src/main.c src/ui.c src/gfx.c src/font.c
+COMMON  = src/main.c src/ui.c src/gfx.c src/icons.c src/png.c
 UNAME   := $(shell uname -s 2>/dev/null || echo Windows)
 
 ifeq ($(OS),Windows_NT)
@@ -32,7 +32,7 @@ endif
 
 all: $(HOST_BIN)
 
-$(HOST_BIN): $(HOST_SRC) src/tm.h
+$(HOST_BIN): $(HOST_SRC) src/tm.h src/fontdata.h
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -o $@ $(HOST_SRC) $(HOST_LD)
 
@@ -49,7 +49,7 @@ $(OUT)/linux-aarch64/taskmgr: $(COMMON) src/sys_linux.c src/win_x11.c src/tm.h
 
 $(OUT)/windows-x86_64/taskmgr.exe: $(COMMON) src/sys_win.c src/win_w32.c src/tm.h
 	@mkdir -p $(dir $@)
-	$(ZIG) cc -target x86_64-windows-gnu $(ZCF) -o $@ $(COMMON) src/sys_win.c src/win_w32.c -Wl,--subsystem,windows -lgdi32 -luser32 -ladvapi32 -liphlpapi -lpowrprof -s -Wl,--gc-sections
+	$(ZIG) cc -target x86_64-windows-gnu $(ZCF) -o $@ $(COMMON) src/sys_win.c src/win_w32.c -Wl,--subsystem,windows -lgdi32 -luser32 -ladvapi32 -liphlpapi -lpowrprof -lshell32 -s -Wl,--gc-sections
 
 $(OUT)/macos-x86_64/taskmgr: $(COMMON) src/sys_mac.c src/win_mac.c src/tm.h
 	@mkdir -p $(dir $@)
@@ -66,9 +66,9 @@ size:
 	@echo; echo "binary sizes:"; ls -la $(OUT)/*/taskmgr* 2>/dev/null | awk '{printf "  %8d bytes  %s\n", $$5, $$9}'
 
 # ---------------------------------------------------------------- tests
-$(OUT)/test_unit: tests/test_unit.c src/gfx.c src/font.c src/ui.c src/sys_linux.c src/win_x11.c src/tm.h
+$(OUT)/test_unit: tests/test_unit.c src/gfx.c src/icons.c src/png.c src/ui.c src/sys_linux.c src/win_x11.c src/tm.h src/fontdata.h
 	@mkdir -p $(OUT)
-	$(CC) -g -O0 -std=c11 -Wall -Wno-unused-parameter -Wno-misleading-indentation -Wno-format-truncation -Wno-missing-field-initializers -Isrc -o $@ tests/test_unit.c src/gfx.c src/font.c src/ui.c src/sys_linux.c src/win_x11.c -ldl -lm
+	$(CC) -g -O0 -std=c11 -Wall -Wno-unused-parameter -Wno-misleading-indentation -Wno-format-truncation -Wno-missing-field-initializers -Isrc -o $@ tests/test_unit.c src/gfx.c src/icons.c src/png.c src/ui.c src/sys_linux.c src/win_x11.c -ldl -lm
 
 test: $(HOST_BIN) $(OUT)/test_unit
 	$(OUT)/test_unit
@@ -79,6 +79,10 @@ screenshot: $(HOST_BIN)
 	$(HOST_BIN) --screenshot docs/processes.bmp --tab 0
 	$(HOST_BIN) --screenshot docs/performance.bmp --tab 1
 	$(HOST_BIN) --screenshot docs/details.bmp --tab 2
+
+# regenerate the baked font (needs DejaVu Sans TTFs)
+src/fontdata.h: tools/bakefont.py
+	python3 tools/bakefont.py /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf > $@
 
 clean:
 	rm -rf $(OUT)

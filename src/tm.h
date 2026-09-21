@@ -114,12 +114,10 @@ typedef struct {
     int w, h;
     int cx0, cy0, cx1, cy1;       /* clip rect (exclusive max) */
     int s;                        /* ui scale */
+    int face;                     /* current font (FontId) */
 } Gfx;
 
-#define FONT_W  5
-#define FONT_H  9
-#define FONT_ADV 6
-#define LINE_H  12
+enum { F_UI, F_BOLD, F_BIG, F_MID, F_COUNT };
 
 void gfx_init(Gfx *g, uint32_t *px, int w, int h, int scale);
 void gfx_clip(Gfx *g, int x, int y, int w, int h);
@@ -127,19 +125,46 @@ void gfx_noclip(Gfx *g);
 void gfx_fill(Gfx *g, int x, int y, int w, int h, uint32_t c);
 void gfx_blend(Gfx *g, int x, int y, int w, int h, uint32_t c, int a);
 void gfx_rect(Gfx *g, int x, int y, int w, int h, uint32_t c);
+void gfx_rrect(Gfx *g, int x, int y, int w, int h, int r, uint32_t c);
+void gfx_rrect_a(Gfx *g, int x, int y, int w, int h, int r, uint32_t c, int a);
+void gfx_rrect_b(Gfx *g, int x, int y, int w, int h, int r, uint32_t fill, uint32_t border);
 void gfx_hline(Gfx *g, int x, int y, int w, uint32_t c);
 void gfx_vline(Gfx *g, int x, int y, int h, uint32_t c);
 void gfx_line(Gfx *g, int x0, int y0, int x1, int y1, uint32_t c);
+void gfx_line_aa(Gfx *g, float x0, float y0, float x1, float y1, uint32_t c);
+void gfx_font(Gfx *g, int f);
+int  gfx_fonth(Gfx *g);                       /* line height of current font */
+int  gfx_fontpx(Gfx *g);
 int  gfx_text(Gfx *g, int x, int y, const char *s, uint32_t c);
-int  gfx_text_s(Gfx *g, int x, int y, const char *s, uint32_t c, int scale);
 int  gfx_textw(Gfx *g, const char *s);
-int  gfx_textw_s(Gfx *g, const char *s, int scale);
-void gfx_text_clip(Gfx *g, int x, int y, int maxw, const char *s, uint32_t c);
 void gfx_text_r(Gfx *g, int xr, int y, const char *s, uint32_t c);
+int  gfx_text_v(Gfx *g, int x, int y, int h, const char *s, uint32_t c);
+void gfx_text_rv(Gfx *g, int xr, int y, int h, const char *s, uint32_t c);
+void gfx_text_mid(Gfx *g, int x, int y, int w, int h, const char *s, uint32_t c);
+void gfx_text_clip(Gfx *g, int x, int y, int maxw, const char *s, uint32_t c);
 void gfx_tri(Gfx *g, int x, int y, int size, int up, uint32_t c);
+void gfx_blit(Gfx *g, int x, int y, const uint32_t *px, int w, int h);
 uint32_t gfx_lerp(uint32_t a, uint32_t b, float t);
+void icon_scale(const uint32_t *src, int sw, int sh, uint32_t *dst, int size);
 
-extern const char *const tm_font[95];   /* glyphs 32..126, 9 rows of 5 */
+/* ------------------------------------------------------------------ */
+/* Icons                                                               */
+/* ------------------------------------------------------------------ */
+
+enum { IC_APP, IC_TERMINAL, IC_SERVICE, IC_KERNEL, IC_BROWSER, IC_SHIELD, IC_WINDOW,
+       IC_PYTHON, IC_NODE, IC_DB, IC_EDITOR, IC_MEDIA, IC_CHAT, IC_FOLDER, IC_SYSTEM, IC_COUNT };
+
+typedef struct {
+    int size;                      /* px, e.g. 16 or 32 */
+    uint32_t *px;                  /* size*size straight-alpha ARGB, or NULL -> use generic kind */
+    int kind;                      /* IC_* generic fallback */
+} Icon;
+
+const Icon *icon_for(const Proc *p, int size);     /* cached per process name */
+void icon_draw(Gfx *g, int x, int y, const Icon *ic);
+int  icon_generic_kind(const Proc *p);
+int  os_icon_load(const Proc *p, int size, uint32_t *out);   /* platform: 1 if found */
+int  png_decode(const unsigned char *data, size_t len, uint32_t **out, int *w, int *h);
 
 /* ------------------------------------------------------------------ */
 /* UI                                                                  */

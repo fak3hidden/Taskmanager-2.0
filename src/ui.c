@@ -6,40 +6,43 @@
 #include <ctype.h>
 #include <math.h>
 
-/* ---- palette (Windows 10 light theme-ish) ------------------------------ */
-#define C_WINBG   0xfff0f0f0
+/* ---- palette (Windows 11 light, Mica-ish) -------------------------- */
+#define C_WINBG   0xfff3f3f3
 #define C_PANEL   0xffffffff
-#define C_BORDER  0xffd0d0d0
-#define C_LINE    0xffe8e8e8
-#define C_TEXT    0xff1a1a1a
-#define C_DIM     0xff6d6d6d
-#define C_SEL     0xffcce8ff
-#define C_SELB    0xff99d1ff
-#define C_HOVER   0xffe5f3ff
-#define C_ACCENT  0xff0078d4
-#define C_BTN     0xffe1e1e1
-#define C_BTNB    0xffadadad
-#define C_HDR     0xfffafafa
-#define C_MENU    0xfff2f2f2
+#define C_BORDER  0xffe0e0e0
+#define C_LINE    0xffededed
+#define C_TEXT    0xff1b1b1b
+#define C_DIM     0xff616161
+#define C_SEL     0xffdbeafe
+#define C_SELB    0xff0078d4
+#define C_HOVER   0xfff2f6fb
+#define C_ACCENT  0xff0067c0
+#define C_ACCENT2 0xff1a7fd6
+#define C_BTN     0xfffbfbfb
+#define C_BTNB    0xffd9d9d9
+#define C_HDR     0xffffffff
+#define C_MENU    0xfff9f9f9
+#define C_SHADOW  0xff000000
 
 #define C_CPU     0xff117dbb
-#define C_CPUF    0xffdcedf7
-#define C_CPUG    0xffbfdcef
+#define C_CPUF    0xffe9f3fa
+#define C_CPUG    0xffd0e4f2
 #define C_MEM     0xff8b12ae
-#define C_MEMF    0xfff0ddf4
-#define C_MEMG    0xffe1c3ea
+#define C_MEMF    0xfff4e8f8
+#define C_MEMG    0xffe6cfee
 #define C_DISK    0xff4da60a
-#define C_DISKF   0xffe1f2d4
-#define C_DISKG   0xffc8e4b3
+#define C_DISKF   0xffebf6e2
+#define C_DISKG   0xffd2e8c0
 #define C_NET     0xffa74f01
-#define C_NETF    0xfff8e6d5
-#define C_NETG    0xffefd1b0
+#define C_NETF    0xfffbefe3
+#define C_NETG    0xfff1dcc4
 
-#define MENU_H 20
-#define TAB_H 28
-#define TOOL_H 30
-#define STATUS_H 20
-#define SB_W 10
+#define MENU_H 24
+#define TAB_H 36
+#define TOOL_H 40
+#define STATUS_H 24
+#define SB_W 12
+#define ICON_SZ 16
 
 #define P(n) ((n) * u->s)
 
@@ -169,15 +172,15 @@ static void table_add(Table *t, int id, int w) { t->cols[t->ncols].id = id; t->c
 static void tables_init(UI *u)
 {
     Table *t = &u->tp; memset(t, 0, sizeof *t);
-    table_add(t, CL_NAME, 230); table_add(t, CL_PID, 55); table_add(t, CL_STATUS, 70); table_add(t, CL_CPU, 62);
-    table_add(t, CL_MEM, 78); table_add(t, CL_DISK, 78); table_add(t, CL_USER, 80); table_add(t, CL_THREADS, 55);
-    t->sort_col = CL_CPU; t->sort_dir = -1; t->hdr_h = 36; t->row_h = 18; t->big = 1; t->hover_row = -1;
+    table_add(t, CL_NAME, 260); table_add(t, CL_PID, 60); table_add(t, CL_STATUS, 80); table_add(t, CL_CPU, 70);
+    table_add(t, CL_MEM, 90); table_add(t, CL_DISK, 90); table_add(t, CL_USER, 90); table_add(t, CL_THREADS, 64);
+    t->sort_col = CL_CPU; t->sort_dir = -1; t->hdr_h = 50; t->row_h = 26; t->big = 1; t->hover_row = -1;
     t = &u->td; memset(t, 0, sizeof *t);
-    table_add(t, CL_NAME, 150); table_add(t, CL_PID, 50); table_add(t, CL_STATUS, 60); table_add(t, CL_USER, 70);
-    table_add(t, CL_CPU, 45); table_add(t, CL_CPUTIME, 75); table_add(t, CL_MEM, 70); table_add(t, CL_VSZ, 70);
-    table_add(t, CL_THREADS, 50); table_add(t, CL_HANDLES, 50); table_add(t, CL_PRIO, 50); table_add(t, CL_NICE, 40);
-    table_add(t, CL_RD, 72); table_add(t, CL_WR, 72); table_add(t, CL_PPID, 50); table_add(t, CL_CMD, 420);
-    t->sort_col = CL_CPU; t->sort_dir = -1; t->hdr_h = 20; t->row_h = 15; t->hover_row = -1;
+    table_add(t, CL_NAME, 180); table_add(t, CL_PID, 56); table_add(t, CL_STATUS, 70); table_add(t, CL_USER, 80);
+    table_add(t, CL_CPU, 50); table_add(t, CL_CPUTIME, 80); table_add(t, CL_MEM, 78); table_add(t, CL_VSZ, 78);
+    table_add(t, CL_THREADS, 58); table_add(t, CL_HANDLES, 58); table_add(t, CL_PRIO, 58); table_add(t, CL_NICE, 44);
+    table_add(t, CL_RD, 78); table_add(t, CL_WR, 78); table_add(t, CL_PPID, 56); table_add(t, CL_CMD, 460);
+    t->sort_col = CL_CPU; t->sort_dir = -1; t->hdr_h = 26; t->row_h = 22; t->hover_row = -1;
 }
 
 /* ---- lifecycle ----------------------------------------------------------- */
@@ -455,8 +458,8 @@ static uint32_t heat_color(float t)
     if (t < 0) return C_PANEL;
     if (t > 1) t = 1;
     t = sqrtf(t);
-    if (t < 0.5f) return gfx_lerp(0xfffff5df, 0xffffd07a, t * 2);
-    return gfx_lerp(0xffffd07a, 0xfff7862a, (t - 0.5f) * 2);
+    if (t < 0.5f) return gfx_lerp(0xfffff9ed, 0xffffe0a8, t * 2);
+    return gfx_lerp(0xffffe0a8, 0xfff5a25a, (t - 0.5f) * 2);
 }
 
 /* ---- widgets --------------------------------------------------------------- */
@@ -466,18 +469,19 @@ static Rect R(int x, int y, int w, int h) { Rect r = { x, y, w, h }; return r; }
 static void button(UI *u, Rect r, const char *label, int primary, int hover)
 {
     Gfx *g = &u->g;
-    uint32_t bg = primary ? C_ACCENT : (hover ? 0xffe5f1fb : C_BTN), bd = primary ? C_ACCENT : (hover ? C_ACCENT : C_BTNB);
-    gfx_fill(g, r.x, r.y, r.w, r.h, bg);
-    gfx_rect(g, r.x, r.y, r.w, r.h, bd);
-    int tw = gfx_textw(g, label);
-    gfx_text(g, r.x + (r.w - tw) / 2, r.y + (r.h - P(FONT_H)) / 2, label, primary ? 0xffffffff : C_TEXT);
+    uint32_t bg = primary ? (hover ? C_ACCENT2 : C_ACCENT) : (hover ? 0xfff4f4f4 : C_BTN);
+    uint32_t bd = primary ? bg : (hover ? 0xffc8c8c8 : C_BTNB);
+    gfx_rrect_b(g, r.x, r.y, r.w, r.h, P(4), bg, bd);
+    if (!primary) gfx_hline(g, r.x + P(3), r.y + r.h - P(1), r.w - P(6), 0xffcccccc);   /* subtle bottom edge */
+    gfx_font(g, F_UI);
+    gfx_text_mid(g, r.x, r.y, r.w, r.h, label, primary ? 0xffffffff : C_TEXT);
 }
 
 static void checkbox_mark(UI *u, int x, int y, uint32_t c)
 {
     Gfx *g = &u->g;
-    gfx_line(g, x, y + P(3), x + P(2), y + P(5), c); gfx_line(g, x + P(2), y + P(5), x + P(6), y + P(1), c);
-    gfx_line(g, x, y + P(4), x + P(2), y + P(6), c); gfx_line(g, x + P(2), y + P(6), x + P(6), y + P(2), c);
+    gfx_line_aa(g, x, y + P(4), x + P(3), y + P(7), c); gfx_line_aa(g, x + P(3), y + P(7), x + P(8), y + P(1), c);
+    gfx_line_aa(g, x, y + P(5), x + P(3), y + P(8), c); gfx_line_aa(g, x + P(3), y + P(8), x + P(8), y + P(2), c);
 }
 
 /* time-series graph */
@@ -492,27 +496,33 @@ static void graph(UI *u, Rect r, const float *a, const float *b, float max, uint
     }
     if (max <= 0) max = 1;
     int n = u->hcount;
-    gfx_clip(g, r.x, r.y, r.w, r.h);
+    gfx_clip(g, r.x + P(1), r.y + P(1), r.w - P(2), r.h - P(2));
     for (int pass = 0; pass < 2; pass++) {
         const float *h = pass ? b : a;
         if (!h) continue;
-        int px = -1, py = -1;
+        float px = -1, py = -1;
         for (int age = 0; age < HIST; age++) {
-            int x = r.x + r.w - 1 - (int)((long)age * (r.w - 1) / (HIST - 1));
+            float x = r.x + r.w - 1 - (float)age * (r.w - 1) / (HIST - 1);
             float v = age < n ? hist_at(h, u->hpos, u->hcount, age) : 0;
             if (v > max) v = max;
-            int y = r.y + r.h - 1 - (int)(v / max * (r.h - 1));
-            if (!pass && age < n) gfx_fill(g, x, y, px < 0 ? 1 : px - x + 1, r.y + r.h - y, fill);
+            float y = r.y + r.h - 1 - v / max * (r.h - 2);
+            if (!pass && age < n && px >= 0) {
+                int xi0 = (int)x, xi1 = (int)px;
+                for (int xi = xi0; xi <= xi1; xi++) {
+                    float t = px == x ? 0 : (xi - x) / (px - x), yy = y + (py - y) * t;
+                    gfx_fill(g, xi, (int)yy + 1, 1, r.y + r.h - (int)yy, fill);
+                }
+            }
             if (px >= 0 && age <= n) {
-                if (pass) { if ((age & 1) == 0) gfx_line(g, px, py, x, y, line); }
-                else gfx_line(g, px, py, x, y, line);
+                if (pass) { if ((age & 1) == 0) gfx_line_aa(g, px, py, x, y, line); }
+                else gfx_line_aa(g, px, py, x, y, line);
             }
             px = x; py = y;
             if (age >= n) break;
         }
     }
     gfx_noclip(g);
-    gfx_rect(g, r.x, r.y, r.w, r.h, line);
+    gfx_rect(g, r.x, r.y, r.w, r.h, gfx_lerp(line, C_PANEL, 0.35f));
 }
 
 /* ---- table drawing ---------------------------------------------------------- */
@@ -525,7 +535,6 @@ static void draw_table(UI *u, Table *t, Rect area)
     int rows = t->body.h / rh; if (rows < 1) rows = 1;
     int maxs = u->nview - rows; if (maxs < 0) maxs = 0;
     if (t->scroll > maxs) t->scroll = maxs; if (t->scroll < 0) t->scroll = 0;
-
     int totw = 0; for (int i = 0; i < t->ncols; i++) totw += P(t->cols[i].w);
     int hbar = totw > t->body.w;
     if (hbar) t->body.h -= P(SB_W);
@@ -535,6 +544,9 @@ static void draw_table(UI *u, Table *t, Rect area)
     maxs = u->nview - rows; if (maxs < 0) maxs = 0;
     if (t->scroll > maxs) t->scroll = maxs;
 
+    int icon_sz = P(ICON_SZ);
+    int tree = u->tree && t == &u->tp && !u->nsearch;
+
     /* header */
     gfx_fill(g, t->hdr.x, t->hdr.y, t->hdr.w, hh, C_HDR);
     gfx_hline(g, t->hdr.x, t->hdr.y + hh - P(1), t->hdr.w, C_BORDER);
@@ -543,8 +555,10 @@ static void draw_table(UI *u, Table *t, Rect area)
     for (int i = 0; i < t->ncols; i++) {
         Col *c = &t->cols[i]; int cw = P(c->w);
         const char *title = coldef[c->id].title;
-        int ty = t->big ? t->hdr.y + hh - P(14) : t->hdr.y + (hh - P(FONT_H)) / 2;
+        int th = t->big ? P(18) : hh;
+        int ty = t->big ? t->hdr.y + hh - th - P(1) : t->hdr.y;
         uint32_t tc = c->id == t->sort_col ? C_TEXT : C_DIM;
+        gfx_font(g, F_UI);
         if (t->big) {
             char tot[32] = ""; float heat = -1;
             if (c->id == CL_CPU) { snprintf(tot, sizeof tot, "%.0f%%", u->cpu_pct); heat = u->cpu_pct / 100; }
@@ -552,19 +566,19 @@ static void draw_table(UI *u, Table *t, Rect area)
             else if (c->id == CL_DISK) { fmt_rate(tot, sizeof tot, u->drd + u->dwr); heat = (float)((u->drd + u->dwr) / (50.0 * 1024 * 1024)); }
             if (tot[0]) {
                 gfx_fill(g, x, t->hdr.y, cw, hh - P(1), heat_color(heat));
-                if (gfx_textw_s(g, tot, 2 * u->s) < cw - P(10))
-                    gfx_text_s(g, x + cw - gfx_textw_s(g, tot, 2 * u->s) - P(5), t->hdr.y + P(3), tot, C_TEXT, 2 * u->s);
-                else
-                    gfx_text_s(g, x + cw - gfx_textw_s(g, tot, u->s) - P(5), t->hdr.y + P(6), tot, C_TEXT, u->s);
+                gfx_font(g, F_MID);
+                if (gfx_textw(g, tot) > cw - P(12)) gfx_font(g, F_UI);
+                gfx_text_r(g, x + cw - P(6), t->hdr.y + P(6), tot, C_TEXT);
+                gfx_font(g, F_UI);
             }
         }
-        if (coldef[c->id].right) gfx_text(g, x + cw - gfx_textw(g, title) - P(5), ty, title, tc);
-        else gfx_text(g, x + P(5), ty, title, tc);
+        if (coldef[c->id].right) gfx_text_rv(g, x + cw - P(6), ty, th, title, tc);
+        else gfx_text_v(g, x + P(6) + (c->id == CL_NAME && !t->big ? 0 : 0), ty, th, title, tc);
         if (c->id == t->sort_col) {
-            int ax = coldef[c->id].right ? x + cw - gfx_textw(g, title) - P(14) : x + P(5) + gfx_textw(g, title) + P(4);
-            gfx_tri(g, ax, ty + P(2), 3, t->sort_dir > 0, C_DIM);
+            int ax = coldef[c->id].right ? x + cw - P(6) - gfx_textw(g, title) - P(11) : x + P(6) + gfx_textw(g, title) + P(5);
+            gfx_tri(g, ax, ty + (th - P(3)) / 2, 3, t->sort_dir > 0, C_DIM);
         }
-        gfx_vline(g, x + cw - P(1), t->hdr.y, hh, C_LINE);
+        gfx_vline(g, x + cw - P(1), t->hdr.y + P(6), hh - P(12), C_LINE);
         x += cw;
     }
     gfx_noclip(g);
@@ -572,7 +586,7 @@ static void draw_table(UI *u, Table *t, Rect area)
     /* rows */
     gfx_fill(g, t->body.x, t->body.y, t->body.w, t->body.h, C_PANEL);
     gfx_clip(g, t->body.x, t->body.y, t->body.w, t->body.h);
-    int tree = u->tree && t == &u->tp && !u->nsearch;
+    gfx_font(g, F_UI);
     for (int r = 0; r < rows + 1; r++) {
         int vi = t->scroll + r;
         if (vi >= u->nview) break;
@@ -585,49 +599,55 @@ static void draw_table(UI *u, Table *t, Rect area)
         for (int i = 0; i < t->ncols; i++) {
             Col *c = &t->cols[i]; int cw = P(c->w);
             float heat = cell_heat(u, p, c->id);
-            if (heat >= 0 && !sel) gfx_fill(g, x, y, cw - P(1), rh, hov ? gfx_lerp(heat_color(heat), C_HOVER, 0.4f) : heat_color(heat));
-            else if (heat >= 0 && sel) gfx_fill(g, x, y, cw - P(1), rh, gfx_lerp(heat_color(heat), C_SEL, 0.5f));
+            if (heat >= 0) {
+                uint32_t hc = heat_color(heat);
+                gfx_fill(g, x, y, cw, rh, sel ? gfx_lerp(hc, C_SEL, 0.55f) : hov ? gfx_lerp(hc, C_HOVER, 0.35f) : hc);
+            }
             char b[256]; cell_text(u, p, c->id, b, sizeof b);
-            int ty = y + (rh - P(FONT_H)) / 2;
             uint32_t col = C_TEXT;
-            if (c->id == CL_STATUS && p->state == 'Z') col = 0xffc00000;
+            if (c->id == CL_STATUS && p->state == 'Z') col = 0xffc42b1c;
+            if (c->id == CL_STATUS && (p->state == 'T' || p->state == 't' || p->state == 'D')) col = 0xff9d5d00;
             if (c->id == CL_NAME) {
-                int ind = tree ? p->depth * P(14) : 0;
-                if (tree && p->nchild) {
-                    int bx = x + P(4) + ind, by = y + rh / 2 - P(4);
-                    gfx_rect(g, bx, by, P(9), P(9), C_DIM);
-                    gfx_hline(g, bx + P(2), by + P(4), P(5), C_TEXT);
-                    if (is_collapsed(u, p->pid)) gfx_vline(g, bx + P(4), by + P(2), P(5), C_TEXT);
+                int ind = tree ? p->depth * P(16) : 0;
+                int cx = x + P(6) + ind;
+                if (tree) {
+                    if (p->nchild) {
+                        int bx = cx + P(2), by = y + rh / 2;
+                        uint32_t cc = C_DIM;
+                        if (is_collapsed(u, p->pid)) { gfx_line_aa(g, bx, by - P(4), bx + P(4), by, cc); gfx_line_aa(g, bx + P(4), by, bx, by + P(4), cc); }
+                        else { gfx_line_aa(g, bx - P(1), by - P(2), bx + P(3), by + P(2), cc); gfx_line_aa(g, bx + P(3), by + P(2), bx + P(7), by - P(2), cc); }
+                    }
+                    cx += P(14);
                 }
-                gfx_text_clip(g, x + P(5) + ind + (tree ? P(13) : 0), ty, cw - P(10) - ind - (tree ? P(13) : 0), b, col);
+                const Icon *ic = icon_for(p, icon_sz);
+                icon_draw(g, cx, y + (rh - icon_sz) / 2, ic);
+                cx += icon_sz + P(7);
+                gfx_text_clip(g, cx, y + (rh - gfx_fonth(g)) / 2, x + cw - cx - P(6), b, col);
             } else if (coldef[c->id].right) {
-                gfx_text_clip(g, x + cw - gfx_textw(g, b) - P(5), ty, cw - P(6), b, col);
-            } else gfx_text_clip(g, x + P(5), ty, cw - P(10), b, col);
+                gfx_text_rv(g, x + cw - P(6), y, rh, b, col);
+            } else gfx_text_clip(g, x + P(6), y + (rh - gfx_fonth(g)) / 2, cw - P(12), b, col);
             x += cw;
         }
-        if (sel) gfx_rect(g, t->body.x, y, t->body.w, rh, C_SELB);
+        if (sel) gfx_fill(g, t->body.x, y + P(4), P(3), rh - P(8), C_SELB);   /* Win11 selection pill */
     }
-    /* column separators */
-    x = area.x - t->hscroll;
-    for (int i = 0; i < t->ncols; i++) { x += P(t->cols[i].w); gfx_vline(g, x - P(1), t->body.y, t->body.h, C_LINE); }
     gfx_noclip(g);
 
     /* horizontal scrollbar */
     if (hbar) {
         Rect hb = R(t->body.x, t->body.y + t->body.h, t->body.w, P(SB_W));
-        gfx_fill(g, hb.x, hb.y, hb.w, hb.h, C_WINBG);
-        int tw = hb.w * t->body.w / totw; if (tw < P(20)) tw = P(20);
+        gfx_fill(g, hb.x, hb.y, hb.w, hb.h, C_PANEL);
+        int tw = hb.w * t->body.w / totw; if (tw < P(24)) tw = P(24);
         int tx = hb.x + (int)((long)(hb.w - tw) * t->hscroll / maxh);
-        gfx_fill(g, tx, hb.y + P(2), tw, hb.h - P(4), 0xffc0c0c0);
+        gfx_rrect(g, tx, hb.y + P(3), tw, hb.h - P(6), P(3), 0xffc4c4c4);
     }
 
-    /* scrollbar */
+    /* vertical scrollbar */
     Rect sb = R(area.x + area.w - P(SB_W), area.y, P(SB_W), area.h);
-    gfx_fill(g, sb.x, sb.y, sb.w, sb.h, C_WINBG);
+    gfx_fill(g, sb.x, sb.y, sb.w, sb.h, C_PANEL);
     if (u->nview > rows) {
-        int th = sb.h * rows / u->nview; if (th < P(20)) th = P(20);
+        int th = sb.h * rows / u->nview; if (th < P(24)) th = P(24);
         int ty = sb.y + (int)((long)(sb.h - th) * t->scroll / maxs);
-        gfx_fill(g, sb.x + P(2), ty, sb.w - P(4), th, 0xffc0c0c0);
+        gfx_rrect(g, sb.x + P(3), ty, sb.w - P(6), th, P(3), 0xffc4c4c4);
     }
 }
 
@@ -667,59 +687,60 @@ static int sel_index(UI *u) { for (int i = 0; i < u->nview; i++) if (u->procs[u-
 static void kv(UI *u, int x, int y, const char *k, const char *v, int big)
 {
     Gfx *g = &u->g;
-    gfx_text(g, x, y, k, C_DIM);
-    if (big) gfx_text_s(g, x, y + P(11), v, C_TEXT, 2 * u->s); else gfx_text(g, x, y + P(11), v, C_TEXT);
+    gfx_font(g, F_UI); gfx_text(g, x, y, k, C_DIM);
+    gfx_font(g, big ? F_BIG : F_UI); gfx_text(g, x, y + P(15), v, C_TEXT); gfx_font(g, F_UI);
 }
 
 static void draw_perf(UI *u, Rect a)
 {
     Gfx *g = &u->g;
-    gfx_fill(g, a.x, a.y, a.w, a.h, C_PANEL);
-    int lw = P(190);
-    /* sidebar */
-    gfx_fill(g, a.x, a.y, lw, a.h, C_WINBG);
-    gfx_vline(g, a.x + lw - P(1), a.y, a.h, C_BORDER);
+    gfx_fill(g, a.x, a.y, a.w, a.h, C_WINBG);
+    int lw = P(236);
+    gfx_font(g, F_UI);
     const char *names[4] = { "CPU", "Memory", "Disk", "Network" };
     char sub[4][48];
     snprintf(sub[0], 48, "%.0f%%  %.2f GHz", u->cpu_pct, u->sys.mhz / 1000);
     char b1[24], b2[24]; fmt_bytes(b1, 24, (double)u->sys.mem_used); fmt_bytes(b2, 24, (double)u->sys.mem_total);
-    snprintf(sub[1], 48, "%s / %s", b1, b2);
-    fmt_rate(b1, 24, u->drd); fmt_rate(b2, 24, u->dwr); snprintf(sub[2], 48, "R %s  W %s", b1, b2);
-    fmt_rate(b1, 24, u->nrx); fmt_rate(b2, 24, u->ntx); snprintf(sub[3], 48, "R %s  S %s", b1, b2);
+    snprintf(sub[1], 48, "%s / %s (%.0f%%)", b1, b2, u->sys.mem_total ? 100.0 * u->sys.mem_used / u->sys.mem_total : 0);
+    fmt_rate(b1, 24, u->drd); fmt_rate(b2, 24, u->dwr); snprintf(sub[2], 48, "R: %s  W: %s", b1, b2);
+    fmt_rate(b1, 24, u->nrx); fmt_rate(b2, 24, u->ntx); snprintf(sub[3], 48, "R: %s  S: %s", b1, b2);
     uint32_t lc[4] = { C_CPU, C_MEM, C_DISK, C_NET }, fc[4] = { C_CPUF, C_MEMF, C_DISKF, C_NETF }, gc[4] = { C_CPUG, C_MEMG, C_DISKG, C_NETG };
     float dmax = 1; for (int i = 0; i < u->hcount; i++) { float v = hist_at(u->hdrd, u->hpos, u->hcount, i) + hist_at(u->hdwr, u->hpos, u->hcount, i); if (v > dmax) dmax = v; }
     float nmax = 1; for (int i = 0; i < u->hcount; i++) { float v = hist_at(u->hnrx, u->hpos, u->hcount, i); float w = hist_at(u->hntx, u->hpos, u->hcount, i); if (v > nmax) nmax = v; if (w > nmax) nmax = w; }
-    float dm = dmax; if (dm < 1024 * 1024) dm = 1024 * 1024;   /* min 1 MB/s scale */
-    float nm = nmax; if (nm < 100 * 1024) nm = 100 * 1024;      /* min 100 KB/s */
+    float dm = dmax; if (dm < 1024 * 1024) dm = 1024 * 1024;
+    float nm = nmax; if (nm < 100 * 1024) nm = 100 * 1024;
     for (int i = 0; i < 4; i++) {
-        Rect it = R(a.x, a.y + P(8) + i * P(66), lw - P(1), P(64));
+        Rect it = R(a.x + P(8), a.y + P(8) + i * P(74), lw - P(12), P(70));
         u->r_perf[i] = it;
-        if (u->perf_page == i) gfx_fill(g, it.x, it.y, it.w, it.h, 0xffe6e6e6);
-        else if (inr(it, u->mx, u->my)) gfx_fill(g, it.x, it.y, it.w, it.h, 0xffeaeaea);
-        Rect gr = R(it.x + P(8), it.y + P(8), P(60), P(48));
+        if (u->perf_page == i) gfx_rrect_b(g, it.x, it.y, it.w, it.h, P(6), C_PANEL, C_BORDER);
+        else if (inr(it, u->mx, u->my)) gfx_rrect(g, it.x, it.y, it.w, it.h, P(6), 0xffeaeaea);
+        if (u->perf_page == i) gfx_rrect(g, it.x, it.y + P(20), P(3), it.h - P(40), P(2), C_SELB);
+        Rect gr = R(it.x + P(12), it.y + P(10), P(70), P(50));
         const float *ha = i == 0 ? u->hcpu : i == 1 ? u->hmem : i == 2 ? u->hdrd : u->hnrx;
         const float *hb = i == 2 ? u->hdwr : i == 3 ? u->hntx : NULL;
         graph(u, gr, ha, hb, i < 2 ? 100 : i == 2 ? dm : nm, lc[i], fc[i], gc[i], 1);
-        gfx_text(g, gr.x + gr.w + P(8), it.y + P(14), names[i], C_TEXT);
-        gfx_text_clip(g, gr.x + gr.w + P(8), it.y + P(30), it.w - gr.w - P(20), sub[i], C_DIM);
+        gfx_font(g, F_BOLD); gfx_text(g, gr.x + gr.w + P(12), it.y + P(16), names[i], C_TEXT);
+        gfx_font(g, F_UI); gfx_text_clip(g, gr.x + gr.w + P(12), it.y + P(36), it.w - gr.w - P(30), sub[i], C_DIM);
     }
 
-    /* main pane */
-    int mx = a.x + lw + P(16), my = a.y + P(10), mw = a.w - lw - P(32);
-    char t1[64], t2[96];
-    const char *big = names[u->perf_page];
-    gfx_text_s(g, mx, my, big, C_TEXT, 2 * u->s);
+    /* main pane card */
+    Rect card = R(a.x + lw, a.y + P(8), a.w - lw - P(8), a.h - P(16));
+    gfx_rrect_b(g, card.x, card.y, card.w, card.h, P(8), C_PANEL, C_BORDER);
+    int mx = card.x + P(20), my = card.y + P(14), mw = card.w - P(40);
+    char t2[96];
+    gfx_font(g, F_BIG); gfx_text(g, mx, my, names[u->perf_page], C_TEXT);
     if (u->perf_page == 0) snprintf(t2, sizeof t2, "%s", u->sys.cpu_model[0] ? u->sys.cpu_model : "Unknown CPU");
     else if (u->perf_page == 1) { fmt_bytes(b1, 24, (double)u->sys.mem_total); snprintf(t2, sizeof t2, "%s", b1); }
     else if (u->perf_page == 2) snprintf(t2, sizeof t2, "All physical disks");
     else snprintf(t2, sizeof t2, "All interfaces (excluding loopback)");
-    gfx_text_clip(g, mx, my + P(22), mw - P(150), t2, C_DIM);
+    gfx_font(g, F_UI);
+    gfx_text_rv(g, mx + mw, my, P(28), t2, C_DIM);
 
-    Rect r_expand = R(mx + mw - P(130), my + P(2), P(130), P(18));
+    Rect r_expand = R(mx + mw - P(150), my + P(34), P(150), P(24));
     u->r_cores = u->perf_page == 0 ? r_expand : R(0, 0, 0, 0);
     if (u->perf_page == 0) button(u, r_expand, u->perf_cores ? "Overall utilization" : "Logical processors", 0, inr(r_expand, u->mx, u->my));
 
-    int gy = my + P(52), gh = a.h * 44 / 100; if (gh < P(120)) gh = P(120);
+    int gy = my + P(78), gh = card.h * 42 / 100; if (gh < P(120)) gh = P(120);
     int seconds = HIST * u->interval_ms / 1000;
     char secs[32]; snprintf(secs, sizeof secs, "%d seconds", seconds);
     int page = u->perf_page;
@@ -727,103 +748,100 @@ static void draw_perf(UI *u, Rect a)
     if (page == 0 && u->perf_cores) {
         int n = u->sys.ncpu, cols = 1; while (cols * cols < n) cols++;
         int rowsn = (n + cols - 1) / cols;
-        int cw = (mw - P(4) * (cols - 1)) / cols, ch = (gh - P(4) * (rowsn - 1)) / rowsn;
-        gfx_text(g, mx, gy - P(12), "% Utilization per logical processor", C_DIM);
+        int cw = (mw - P(6) * (cols - 1)) / cols, ch = (gh - P(6) * (rowsn - 1)) / rowsn;
+        gfx_text(g, mx, gy - P(18), "% Utilization per logical processor", C_DIM);
         for (int i = 0; i < n; i++) {
-            Rect r = R(mx + (i % cols) * (cw + P(4)), gy + (i / cols) * (ch + P(4)), cw, ch);
+            Rect r = R(mx + (i % cols) * (cw + P(6)), gy + (i / cols) * (ch + P(6)), cw, ch);
             graph(u, r, u->hcore[i], NULL, 100, C_CPU, C_CPUF, C_CPUG, 1);
-            char l[16]; snprintf(l, sizeof l, "%d", i);
-            if (ch > P(20)) gfx_text(g, r.x + P(3), r.y + P(3), l, C_DIM);
+            char l[16]; snprintf(l, sizeof l, "CPU %d", i);
+            if (ch > P(24) && cw > P(50)) gfx_text(g, r.x + P(5), r.y + P(3), l, C_DIM);
         }
     } else {
         Rect gr = R(mx, gy, mw, gh);
-        const char *lbl = page == 0 ? "% Utilization" : page == 1 ? "Memory usage" : page == 2 ? "Throughput" : "Throughput";
+        const char *lbl = page < 2 ? (page == 0 ? "% Utilization" : "Memory usage") : "Throughput";
         char top[32];
-        if (page < 2) snprintf(top, sizeof top, "100%%");
-        else fmt_rate(top, sizeof top, page == 2 ? dm : nm);
-        gfx_text(g, mx, gy - P(12), lbl, C_DIM);
-        gfx_text_r(g, mx + mw, gy - P(12), top, C_DIM);
+        if (page < 2) snprintf(top, sizeof top, "100%%"); else fmt_rate(top, sizeof top, page == 2 ? dm : nm);
+        gfx_text(g, mx, gy - P(18), lbl, C_DIM);
+        gfx_text_r(g, mx + mw, gy - P(18), top, C_DIM);
         const float *ha = page == 0 ? u->hcpu : page == 1 ? u->hmem : page == 2 ? u->hdrd : u->hnrx;
         const float *hb = page == 2 ? u->hdwr : page == 3 ? u->hntx : NULL;
         graph(u, gr, ha, hb, page < 2 ? 100 : page == 2 ? dm : nm, lc[page], fc[page], gc[page], 0);
-        gfx_text(g, mx, gy + gh + P(4), secs, C_DIM);
-        gfx_text_r(g, mx + mw, gy + gh + P(4), "0", C_DIM);
+        gfx_text(g, mx, gy + gh + P(5), secs, C_DIM);
+        gfx_text_r(g, mx + mw, gy + gh + P(5), "0", C_DIM);
         if (hb) {
-            gfx_hline(g, mx + mw - P(160), gy + gh + P(8), P(14), lc[page]);
-            gfx_text(g, mx + mw - P(142), gy + gh + P(4), page == 2 ? "Read" : "Receive", C_DIM);
-            for (int i = 0; i < P(14); i += P(4)) gfx_hline(g, mx + mw - P(80) + i, gy + gh + P(8), P(2), lc[page]);
-            gfx_text(g, mx + mw - P(62), gy + gh + P(4), page == 2 ? "Write" : "Send", C_DIM);
+            int lx = mx + mw - P(190), ly = gy + gh + P(5);
+            gfx_fill(g, lx, ly + P(7), P(16), P(2), lc[page]);
+            gfx_text(g, lx + P(22), ly, page == 2 ? "Read" : "Receive", C_DIM);
+            for (int i = 0; i < P(16); i += P(5)) gfx_fill(g, lx + P(92) + i, ly + P(7), P(3), P(2), lc[page]);
+            gfx_text(g, lx + P(114), ly, page == 2 ? "Write" : "Send", C_DIM);
         }
     }
 
     /* stats */
-    int sy = gy + gh + P(24), colw = P(120);
+    int sy = gy + gh + P(30), colw = P(130);
     char v[64];
     if (page == 1) {
-        /* composition bar */
-        Rect bar = R(mx, sy, mw, P(18));
+        Rect bar = R(mx, sy, mw, P(20));
         double tot = (double)(u->sys.mem_total ? u->sys.mem_total : 1);
-        int wu = (int)(bar.w * (u->sys.mem_used - (u->sys.mem_used > u->sys.mem_cached ? 0 : 0)) / tot);
-        int wc = (int)(bar.w * u->sys.mem_cached / tot);
+        int wu = (int)(bar.w * u->sys.mem_used / tot), wc = (int)(bar.w * u->sys.mem_cached / tot);
         if (wu + wc > bar.w) wc = bar.w - wu;
-        gfx_fill(g, bar.x, bar.y, bar.w, bar.h, C_PANEL);
+        gfx_rrect_b(g, bar.x, bar.y, bar.w, bar.h, P(3), C_PANEL, C_MEM);
+        gfx_clip(g, bar.x + P(1), bar.y + P(1), bar.w - P(2), bar.h - P(2));
         gfx_fill(g, bar.x, bar.y, wu, bar.h, C_MEM);
-        gfx_fill(g, bar.x + wu, bar.y, wc, bar.h, C_MEMG);
-        gfx_rect(g, bar.x, bar.y, bar.w, bar.h, C_MEM);
-        gfx_text(g, mx, sy + P(22), "In use", C_DIM); gfx_text(g, mx + P(60), sy + P(22), "Standby/cached", C_DIM); gfx_text_r(g, mx + mw, sy + P(22), "Free", C_DIM);
-        sy += P(40);
+        for (int i = 0; i < wc; i += P(4)) gfx_fill(g, bar.x + wu + i, bar.y, P(2), bar.h, C_MEMG);
+        gfx_noclip(g);
+        gfx_text(g, mx, sy + P(24), "In use", C_DIM); gfx_text(g, mx + P(70), sy + P(24), "Standby / cached", C_DIM); gfx_text_r(g, mx + mw, sy + P(24), "Free", C_DIM);
+        sy += P(46);
     }
     int y = sy, x = mx;
     switch (page) {
     case 0:
         snprintf(v, sizeof v, "%.0f%%", u->cpu_pct); kv(u, x, y, "Utilization", v, 1);
         snprintf(v, sizeof v, "%.2f GHz", u->sys.mhz / 1000); kv(u, x + colw, y, "Speed", v, 1);
-        y += P(40);
+        y += P(48);
         snprintf(v, sizeof v, "%d", u->sys.nproc); kv(u, x, y, "Processes", v, 1);
         snprintf(v, sizeof v, "%d", u->sys.nthreads); kv(u, x + colw, y, "Threads", v, 1);
         snprintf(v, sizeof v, "%d", u->sys.nhandles); kv(u, x + 2 * colw, y, "Handles", v, 1);
-        y += P(40);
+        y += P(48);
         fmt_time(v, sizeof v, u->sys.uptime); kv(u, x, y, "Up time", v, 1);
-        /* right column */
-        x = mx + mw - P(170); y = sy;
-        snprintf(v, sizeof v, "%.2f GHz", (u->sys.base_mhz > 0 ? u->sys.base_mhz : u->sys.mhz) / 1000); kv(u, x, y, "Base speed:", v, 0); y += P(24);
-        snprintf(v, sizeof v, "%d", u->sys.sockets); kv(u, x, y, "Sockets:", v, 0); y += P(24);
-        snprintf(v, sizeof v, "%d", u->sys.cores); kv(u, x, y, "Cores:", v, 0); y += P(24);
-        snprintf(v, sizeof v, "%d", u->sys.ncpu); kv(u, x, y, "Logical processors:", v, 0); y += P(24);
-        if (u->sys.load[0] || u->sys.load[1]) { snprintf(v, sizeof v, "%.2f %.2f %.2f", u->sys.load[0], u->sys.load[1], u->sys.load[2]); kv(u, x, y, "Load average:", v, 0); y += P(24); }
+        x = mx + mw - P(190); y = sy;
+        snprintf(v, sizeof v, "%.2f GHz", (u->sys.base_mhz > 0 ? u->sys.base_mhz : u->sys.mhz) / 1000); kv(u, x, y, "Base speed:", v, 0); y += P(34);
+        snprintf(v, sizeof v, "%d", u->sys.sockets); kv(u, x, y, "Sockets:", v, 0); y += P(34);
+        snprintf(v, sizeof v, "%d", u->sys.cores); kv(u, x, y, "Cores:", v, 0); y += P(34);
+        snprintf(v, sizeof v, "%d", u->sys.ncpu); kv(u, x, y, "Logical processors:", v, 0); y += P(34);
+        if (u->sys.load[0] || u->sys.load[1]) { snprintf(v, sizeof v, "%.2f  %.2f  %.2f", u->sys.load[0], u->sys.load[1], u->sys.load[2]); kv(u, x, y, "Load average:", v, 0); y += P(34); }
         break;
     case 1:
         fmt_bytes(v, sizeof v, (double)u->sys.mem_used); kv(u, x, y, "In use", v, 1);
         fmt_bytes(v, sizeof v, (double)u->sys.mem_avail); kv(u, x + colw, y, "Available", v, 1);
-        y += P(40);
+        y += P(48);
         { char c1[24], c2[24]; fmt_bytes(c1, 24, (double)u->sys.mem_committed); fmt_bytes(c2, 24, (double)u->sys.mem_commit_limit);
-          snprintf(v, sizeof v, "%s/%s", c1, c2); kv(u, x, y, "Committed", v, 1); }
-        fmt_bytes(v, sizeof v, (double)u->sys.mem_cached); kv(u, x + colw * 3 / 2, y, "Cached", v, 1);
-        y += P(40);
+          snprintf(v, sizeof v, "%s / %s", c1, c2); kv(u, x, y, "Committed", v, 1); }
+        fmt_bytes(v, sizeof v, (double)u->sys.mem_cached); kv(u, x + colw * 2, y, "Cached", v, 1);
+        y += P(48);
         { char c1[24], c2[24]; fmt_bytes(c1, 24, (double)u->sys.swap_used); fmt_bytes(c2, 24, (double)u->sys.swap_total);
-          snprintf(v, sizeof v, "%s/%s", c1, c2); kv(u, x, y, "Swap", v, 1); }
-        x = mx + mw - P(170); y = sy;
-        fmt_bytes(v, sizeof v, (double)u->sys.mem_total); kv(u, x, y, "Total:", v, 0); y += P(24);
-        snprintf(v, sizeof v, "%.1f%%", u->sys.mem_total ? 100.0 * u->sys.mem_used / u->sys.mem_total : 0); kv(u, x, y, "Used:", v, 0); y += P(24);
+          snprintf(v, sizeof v, "%s / %s", c1, c2); kv(u, x, y, "Swap", v, 1); }
+        x = mx + mw - P(190); y = sy;
+        fmt_bytes(v, sizeof v, (double)u->sys.mem_total); kv(u, x, y, "Total:", v, 0); y += P(34);
+        snprintf(v, sizeof v, "%.1f%%", u->sys.mem_total ? 100.0 * u->sys.mem_used / u->sys.mem_total : 0); kv(u, x, y, "Used:", v, 0); y += P(34);
         break;
     case 2:
         fmt_rate(v, sizeof v, u->drd); kv(u, x, y, "Read speed", v, 1);
         fmt_rate(v, sizeof v, u->dwr); kv(u, x + colw * 3 / 2, y, "Write speed", v, 1);
-        y += P(40);
+        y += P(48);
         fmt_bytes(v, sizeof v, (double)u->sys.disk_rd); kv(u, x, y, "Total read", v, 1);
         fmt_bytes(v, sizeof v, (double)u->sys.disk_wr); kv(u, x + colw * 3 / 2, y, "Total written", v, 1);
         break;
     case 3:
         fmt_rate(v, sizeof v, u->ntx); kv(u, x, y, "Send", v, 1);
         fmt_rate(v, sizeof v, u->nrx); kv(u, x + colw * 3 / 2, y, "Receive", v, 1);
-        y += P(40);
+        y += P(48);
         fmt_bytes(v, sizeof v, (double)u->sys.net_tx); kv(u, x, y, "Total sent", v, 1);
         fmt_bytes(v, sizeof v, (double)u->sys.net_rx); kv(u, x + colw * 3 / 2, y, "Total received", v, 1);
-        x = mx + mw - P(170); y = sy;
-        kv(u, x, y, "Host name:", u->sys.host, 0); y += P(24);
+        x = mx + mw - P(190); y = sy;
+        kv(u, x, y, "Host name:", u->sys.host, 0); y += P(34);
         break;
     }
-    (void)t1;
 }
 
 /* ---- menus ---------------------------------------------------------------------- */
@@ -876,29 +894,29 @@ static int ctx_items(UI *u, MenuItem *out)
 static void draw_dropdown(UI *u, Rect *out, int x, int y, MenuItem *items, int n, int hover)
 {
     Gfx *g = &u->g;
-    int ih = P(20), w = P(190), h = 0;
-    for (int i = 0; i < n; i++) h += ih + (items[i].sep ? P(5) : 0);
-    h += P(6);
+    gfx_font(g, F_UI);
+    int ih = P(28), w = P(230), h = P(8);
+    for (int i = 0; i < n; i++) h += ih + (items[i].sep ? P(9) : 0);
     if (x + w > u->w) x = u->w - w; if (y + h > u->h) y = u->h - h;
     *out = R(x, y, w, h);
-    gfx_blend(g, x + P(2), y + P(2), w, h, 0xff000000, 40);
-    gfx_fill(g, x, y, w, h, C_MENU); gfx_rect(g, x, y, w, h, C_BTNB);
-    int iy = y + P(3);
+    for (int i = 4; i >= 1; i--) gfx_rrect_a(g, x - i + 2, y - i + 4, w + 2 * i - 4, h + 2 * i - 4, P(8) + i, C_SHADOW, 10);
+    gfx_rrect_b(g, x, y, w, h, P(8), C_MENU, C_BORDER);
+    int iy = y + P(4);
     for (int i = 0; i < n; i++) {
-        if (items[i].sep) { gfx_hline(g, x + P(4), iy + P(2), w - P(8), C_BORDER); iy += P(5); }
-        if (i == hover) gfx_fill(g, x + P(2), iy, w - P(4), ih, 0xff91c9f7);
-        if (items[i].check) checkbox_mark(u, x + P(8), iy + P(5), C_TEXT);
-        gfx_text(g, x + P(22), iy + (ih - P(FONT_H)) / 2, items[i].label, C_TEXT);
-        gfx_text_r(g, x + w - P(8), iy + (ih - P(FONT_H)) / 2, items[i].key, C_DIM);
+        if (items[i].sep) { gfx_hline(g, x + P(8), iy + P(4), w - P(16), C_BORDER); iy += P(9); }
+        if (i == hover) gfx_rrect(g, x + P(4), iy, w - P(8), ih, P(4), 0xffe9e9e9);
+        if (items[i].check) checkbox_mark(u, x + P(12), iy + (ih - P(10)) / 2, C_TEXT);
+        gfx_text_v(g, x + P(30), iy, ih, items[i].label, C_TEXT);
+        gfx_text_rv(g, x + w - P(12), iy, ih, items[i].key, C_DIM);
         iy += ih;
     }
 }
 static int dropdown_hit(UI *u, Rect dd, MenuItem *items, int n, int x, int y)
 {
     if (!inr(dd, x, y)) return -1;
-    int ih = P(20), iy = dd.y + P(3);
+    int ih = P(28), iy = dd.y + P(4);
     for (int i = 0; i < n; i++) {
-        if (items[i].sep) iy += P(5);
+        if (items[i].sep) iy += P(9);
         if (y >= iy && y < iy + ih) return i;
         iy += ih;
     }
@@ -910,68 +928,84 @@ static void draw_dialog(UI *u)
 {
     Gfx *g = &u->g;
     if (u->dlg == DLG_NONE) return;
-    gfx_blend(g, 0, 0, u->w, u->h, 0xff000000, 70);
-    int w = P(380), h = P(150);
-    if (u->dlg == DLG_PROPS) { w = P(460); h = P(230); }
-    if (u->dlg == DLG_ABOUT) { h = P(190); }
+    gfx_blend(g, 0, 0, u->w, u->h, 0xff000000, 90);
+    int w = P(440), h = P(190);
+    if (u->dlg == DLG_PROPS) { w = P(560); h = P(330); }
+    if (u->dlg == DLG_ABOUT) { w = P(460); h = P(250); }
     int x = (u->w - w) / 2, y = (u->h - h) / 2;
-    gfx_blend(g, x + P(4), y + P(4), w, h, 0xff000000, 60);
-    gfx_fill(g, x, y, w, h, C_PANEL); gfx_rect(g, x, y, w, h, C_ACCENT);
-    gfx_fill(g, x, y, w, P(26), C_ACCENT);
+    for (int i = 8; i >= 1; i--) gfx_rrect_a(g, x - i + 4, y - i + 8, w + 2 * i - 8, h + 2 * i - 8, P(10) + i, C_SHADOW, 9);
+    gfx_rrect_b(g, x, y, w, h, P(10), C_PANEL, C_BORDER);
+    /* footer strip (rounded at the bottom to follow the dialog corners) */
+    gfx_clip(g, x + P(1), y + h - P(60), w - P(2), P(59));
+    gfx_rrect(g, x + P(1), y + h - P(120), w - P(2), P(119), P(9), C_WINBG);
+    gfx_noclip(g);
+    gfx_hline(g, x + P(1), y + h - P(60), w - P(2), C_BORDER);
+
     const char *title = u->dlg == DLG_END ? "End task" : u->dlg == DLG_END_TREE ? "End process tree" :
-                        u->dlg == DLG_PROPS ? "Properties" : u->dlg == DLG_ABOUT ? "About" : "Error";
-    gfx_text(g, x + P(10), y + P(8), title, 0xffffffff);
-    int ty = y + P(40);
+                        u->dlg == DLG_PROPS ? "Properties" : u->dlg == DLG_ABOUT ? "About Task Manager" : "Something went wrong";
+    gfx_font(g, F_BIG); gfx_text(g, x + P(24), y + P(18), title, C_TEXT); gfx_font(g, F_UI);
+    int ty = y + P(58);
     Proc *p = u->dlg_pid > 0 ? find_proc(u, u->dlg_pid) : NULL;
     char line[256];
+    int icon_sz = P(32);
     if (u->dlg == DLG_END || u->dlg == DLG_END_TREE) {
-        snprintf(line, sizeof line, "Do you want to end \"%s\" (PID %d)?", u->dlg_name, u->dlg_pid);
-        gfx_text_clip(g, x + P(12), ty, w - P(24), line, C_TEXT); ty += P(16);
-        gfx_text(g, x + P(12), ty, u->dlg == DLG_END_TREE ? "All of its child processes will be ended too." : "Unsaved data in this process will be lost.", C_DIM); ty += P(14);
-        if (p) { snprintf(line, sizeof line, "%s - %s", p->user, p->cmd); gfx_text_clip(g, x + P(12), ty, w - P(24), line, C_DIM); }
-        u->r_dlg_btn[0] = R(x + w - P(200), y + h - P(34), P(90), P(24));
-        u->r_dlg_btn[1] = R(x + w - P(100), y + h - P(34), P(90), P(24));
+        if (p) icon_draw(g, x + P(24), ty, icon_for(p, icon_sz));
+        int tx = x + P(24) + icon_sz + P(14);
+        gfx_font(g, F_BOLD);
+        snprintf(line, sizeof line, "%s  (PID %d)", u->dlg_name, u->dlg_pid);
+        gfx_text_clip(g, tx, ty, x + w - tx - P(24), line, C_TEXT); ty += P(20);
+        gfx_font(g, F_UI);
+        gfx_text(g, tx, ty, u->dlg == DLG_END_TREE ? "This process and all of its child processes will be ended." : "Any unsaved data in this process will be lost.", C_DIM); ty += P(18);
+        if (p) { snprintf(line, sizeof line, "%s   %s", p->user, p->cmd); gfx_text_clip(g, tx, ty, x + w - tx - P(24), line, C_DIM); }
+        u->r_dlg_btn[0] = R(x + w - P(236), y + h - P(46), P(110), P(30));
+        u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
         button(u, u->r_dlg_btn[0], "End process", 1, inr(u->r_dlg_btn[0], u->mx, u->my));
         button(u, u->r_dlg_btn[1], "Cancel", 0, inr(u->r_dlg_btn[1], u->mx, u->my));
     } else if (u->dlg == DLG_PROPS) {
-        if (!p) { gfx_text(g, x + P(12), ty, "The process has exited.", C_TEXT); }
+        if (!p) { gfx_text(g, x + P(24), ty, "The process has exited.", C_TEXT); }
         else {
-            const char *keys[] = { "Name", "PID", "Parent PID", "User", "Status", "CPU", "CPU time", "Memory", "Virtual", "Threads", "Handles", "Prio / nice", "Disk R / W", "Command" };
-            char vals[14][256]; char a[32], b[32];
-            snprintf(vals[0], 256, "%s", p->name); snprintf(vals[1], 256, "%d", p->pid); snprintf(vals[2], 256, "%d", p->ppid);
-            snprintf(vals[3], 256, "%s", p->user); snprintf(vals[4], 256, "%s (%c)", state_name(p->state)[0] ? state_name(p->state) : "Sleeping", p->state);
-            snprintf(vals[5], 256, "%.1f%%", p->cpu); fmt_time(vals[6], 256, p->cpu_time / 1000000000ull);
-            fmt_bytes(vals[7], 256, (double)p->rss); fmt_bytes(vals[8], 256, (double)p->vsz);
-            snprintf(vals[9], 256, "%d", p->threads); snprintf(vals[10], 256, "%d", p->handles);
-            snprintf(vals[11], 256, "%d / %d", p->prio, p->nice);
-            fmt_bytes(a, 32, (double)p->rd); fmt_bytes(b, 32, (double)p->wr); snprintf(vals[12], 256, "%s / %s", a, b);
-            snprintf(vals[13], 256, "%s", p->cmd);
-            for (int i = 0; i < 14; i++) {
-                int col = i < 7 ? 0 : 1; int yy = ty + (i % 7) * P(16);
-                if (i == 13) { yy = ty + 7 * P(16) + P(4); col = 0; }
-                int xx = x + P(12) + col * P(225);
+            icon_draw(g, x + P(24), ty - P(2), icon_for(p, icon_sz));
+            gfx_font(g, F_BOLD); gfx_text(g, x + P(24) + icon_sz + P(12), ty, p->name, C_TEXT);
+            gfx_font(g, F_UI); gfx_text_clip(g, x + P(24) + icon_sz + P(12), ty + P(17), w - P(48) - icon_sz - P(12), p->cmd, C_DIM);
+            ty += P(46);
+            gfx_hline(g, x + P(24), ty - P(8), w - P(48), C_LINE);
+            const char *keys[] = { "PID", "Parent PID", "User", "Status", "CPU", "CPU time", "Threads", "Memory", "Virtual", "Handles", "Prio / nice", "Disk R / W" };
+            char vals[12][128]; char a[32], b[32];
+            snprintf(vals[0], 128, "%d", p->pid); snprintf(vals[1], 128, "%d", p->ppid);
+            snprintf(vals[2], 128, "%s", p->user); snprintf(vals[3], 128, "%s (%c)", state_name(p->state)[0] ? state_name(p->state) : "Sleeping", p->state);
+            snprintf(vals[4], 128, "%.1f%%", p->cpu); fmt_time(vals[5], 128, p->cpu_time / 1000000000ull);
+            snprintf(vals[6], 128, "%d", p->threads);
+            fmt_bytes(vals[7], 128, (double)p->rss); fmt_bytes(vals[8], 128, (double)p->vsz);
+            snprintf(vals[9], 128, "%d", p->handles); snprintf(vals[10], 128, "%d / %d", p->prio, p->nice);
+            fmt_bytes(a, 32, (double)p->rd); fmt_bytes(b, 32, (double)p->wr); snprintf(vals[11], 128, "%s / %s", a, b);
+            int colw = (w - P(48)) / 2;
+            for (int i = 0; i < 12; i++) {
+                int col = i / 6, yy = ty + (i % 6) * P(22), xx = x + P(24) + col * colw;
                 gfx_text(g, xx, yy, keys[i], C_DIM);
-                gfx_text_clip(g, xx + P(80), yy, (i == 13 ? w - P(24) : P(215)) - P(80), vals[i], C_TEXT);
+                gfx_text_clip(g, xx + P(92), yy, colw - P(100), vals[i], C_TEXT);
             }
         }
-        u->r_dlg_btn[0] = R(x + w - P(200), y + h - P(34), P(90), P(24));
-        u->r_dlg_btn[1] = R(x + w - P(100), y + h - P(34), P(90), P(24));
+        u->r_dlg_btn[0] = R(x + w - P(236), y + h - P(46), P(110), P(30));
+        u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
         button(u, u->r_dlg_btn[0], "End task", 0, inr(u->r_dlg_btn[0], u->mx, u->my));
         button(u, u->r_dlg_btn[1], "Close", 1, inr(u->r_dlg_btn[1], u->mx, u->my));
     } else if (u->dlg == DLG_ABOUT) {
-        gfx_text_s(g, x + P(12), ty, "Task Manager 2.0", C_TEXT, 2 * u->s); ty += P(24);
-        gfx_text(g, x + P(12), ty, "A compact, dependency-free task manager.", C_DIM); ty += P(14);
-        gfx_text(g, x + P(12), ty, "Software-rendered UI, native OS APIs only.", C_DIM); ty += P(18);
-        snprintf(line, sizeof line, "%s  -  %s", u->sys.os, u->sys.host); gfx_text_clip(g, x + P(12), ty, w - P(24), line, C_TEXT); ty += P(14);
-        gfx_text(g, x + P(12), ty, "Keys: Tab switch  Ctrl+F search  Del end  Enter info  Space pause", C_DIM);
+        Proc self; memset(&self, 0, sizeof self); snprintf(self.name, sizeof self.name, "Task Manager");
+        Icon logo = { icon_sz, NULL, IC_SYSTEM }; icon_draw(g, x + P(24), ty, &logo);
+        int tx = x + P(24) + icon_sz + P(14);
+        gfx_font(g, F_BOLD); gfx_text(g, tx, ty, "Task Manager " TM_VERSION, C_TEXT); gfx_font(g, F_UI);
+        gfx_text(g, tx, ty + P(18), "A compact, dependency-free task manager.", C_DIM); ty += P(46);
+        gfx_text(g, x + P(24), ty, "Software-rendered UI, native OS APIs, one tiny executable.", C_TEXT); ty += P(20);
+        snprintf(line, sizeof line, "%s  -  %s", u->sys.os, u->sys.host); gfx_text_clip(g, x + P(24), ty, w - P(48), line, C_DIM); ty += P(24);
+        gfx_text(g, x + P(24), ty, "Tab: switch tab   Type: search   Del: end task   Enter: properties   Space: pause", C_DIM);
         u->r_dlg_btn[0] = R(0, 0, 0, 0);
-        u->r_dlg_btn[1] = R(x + w - P(100), y + h - P(34), P(90), P(24));
+        u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
         button(u, u->r_dlg_btn[1], "OK", 1, inr(u->r_dlg_btn[1], u->mx, u->my));
     } else {
-        gfx_text_clip(g, x + P(12), ty, w - P(24), u->dlg_msg, C_TEXT);
-        gfx_text(g, x + P(12), ty + P(16), "You may need elevated privileges (root / Administrator).", C_DIM);
+        gfx_text_clip(g, x + P(24), ty, w - P(48), u->dlg_msg, C_TEXT);
+        gfx_text(g, x + P(24), ty + P(20), "You may need elevated privileges (root / Administrator).", C_DIM);
         u->r_dlg_btn[0] = R(0, 0, 0, 0);
-        u->r_dlg_btn[1] = R(x + w - P(100), y + h - P(34), P(90), P(24));
+        u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
         button(u, u->r_dlg_btn[1], "OK", 1, inr(u->r_dlg_btn[1], u->mx, u->my));
     }
 }
@@ -982,87 +1016,91 @@ void ui_draw(UI *u)
     Gfx *g = &u->g;
     if (!u->px) return;
     gfx_fill(g, 0, 0, u->w, u->h, C_WINBG);
+    gfx_font(g, F_UI);
 
     /* menu bar */
-    gfx_fill(g, 0, 0, u->w, P(MENU_H), C_WINBG);
-    int x = P(4);
+    int x = P(6);
     for (int i = 0; i < 4; i++) {
-        int w = gfx_textw(g, menu_names[i]) + P(16);
-        u->r_menu[i] = R(x, 0, w, P(MENU_H));
-        if (u->menu_open == i) gfx_fill(g, x, 0, w, P(MENU_H), 0xff91c9f7);
-        else if (inr(u->r_menu[i], u->mx, u->my) && u->dlg == DLG_NONE) gfx_fill(g, x, 0, w, P(MENU_H), 0xffdcdcdc);
-        gfx_text(g, x + P(8), (P(MENU_H) - P(FONT_H)) / 2, menu_names[i], C_TEXT);
+        int w = gfx_textw(g, menu_names[i]) + P(20);
+        u->r_menu[i] = R(x, P(2), w, P(MENU_H) - P(4));
+        if (u->menu_open == i) gfx_rrect(g, x, P(2), w, P(MENU_H) - P(4), P(4), 0xffdedede);
+        else if (inr(u->r_menu[i], u->mx, u->my) && u->dlg == DLG_NONE) gfx_rrect(g, x, P(2), w, P(MENU_H) - P(4), P(4), 0xffe8e8e8);
+        gfx_text_mid(g, x, P(2), w, P(MENU_H) - P(4), menu_names[i], C_TEXT);
         x += w;
     }
-    if (u->paused) gfx_text_r(g, u->w - P(8), (P(MENU_H) - P(FONT_H)) / 2, "PAUSED", 0xffc00000);
-    else { char sp[32]; snprintf(sp, sizeof sp, "%.1fs", u->interval_ms / 1000.0); gfx_text_r(g, u->w - P(8), (P(MENU_H) - P(FONT_H)) / 2, sp, C_DIM); }
+    if (u->paused) { gfx_rrect(g, u->w - P(70), P(4), P(62), P(MENU_H) - P(8), P(4), 0xfffde7e9); gfx_text_mid(g, u->w - P(70), P(4), P(62), P(MENU_H) - P(8), "Paused", 0xffc42b1c); }
+    else { char sp[32]; snprintf(sp, sizeof sp, "Every %.1f s", u->interval_ms / 1000.0); gfx_text_rv(g, u->w - P(10), 0, P(MENU_H), sp, C_DIM); }
 
-    /* tabs */
+    /* tabs (Win11 pivot style) */
     const char *tabs[3] = { "Processes", "Performance", "Details" };
     int ty = P(MENU_H);
-    gfx_fill(g, 0, ty, u->w, P(TAB_H), C_WINBG);
-    x = P(6);
+    x = P(12);
     for (int i = 0; i < 3; i++) {
-        int w = gfx_textw(g, tabs[i]) + P(24);
-        u->r_tabs[i] = R(x, ty + P(4), w, P(TAB_H) - P(4));
-        if (u->tab == i) {
-            gfx_fill(g, x, ty + P(4), w, P(TAB_H) - P(4), C_PANEL);
-            gfx_rect(g, x, ty + P(4), w, P(TAB_H) - P(3), C_BORDER);
-            gfx_fill(g, x + P(1), ty + P(TAB_H) - P(1), w - P(2), P(2), C_PANEL);
-            gfx_fill(g, x, ty + P(4), w, P(2), C_ACCENT);
-        } else if (inr(u->r_tabs[i], u->mx, u->my) && u->dlg == DLG_NONE) gfx_fill(g, x, ty + P(6), w, P(TAB_H) - P(6), 0xffe6e6e6);
-        gfx_text(g, x + P(12), ty + P(4) + (P(TAB_H) - P(4) - P(FONT_H)) / 2, tabs[i], u->tab == i ? C_TEXT : C_DIM);
+        int w = gfx_textw(g, tabs[i]) + P(28);
+        u->r_tabs[i] = R(x, ty, w, P(TAB_H));
+        if (u->tab != i && inr(u->r_tabs[i], u->mx, u->my) && u->dlg == DLG_NONE) gfx_rrect(g, x, ty + P(4), w, P(TAB_H) - P(8), P(4), 0xffe8e8e8);
+        gfx_font(g, u->tab == i ? F_BOLD : F_UI);
+        gfx_text_mid(g, x, ty, w, P(TAB_H), tabs[i], u->tab == i ? C_TEXT : C_DIM);
+        if (u->tab == i) gfx_rrect(g, x + P(10), ty + P(TAB_H) - P(4), w - P(20), P(3), P(2), C_SELB);
         x += w;
     }
-    int cy = ty + P(TAB_H) - P(1);
+    gfx_font(g, F_UI);
+    int cy = ty + P(TAB_H);
     Rect content = R(0, cy, u->w, u->h - cy - P(STATUS_H));
-    gfx_fill(g, content.x, content.y, content.w, content.h, C_PANEL);
-    gfx_hline(g, 0, cy, u->w, C_BORDER);
-    if (u->tab == 0) gfx_fill(g, u->r_tabs[0].x + P(1), cy, u->r_tabs[0].w - P(2), P(1), C_PANEL);
 
     if (u->tab == 1) {
         u->r_end = u->r_search = u->r_tree = R(0, 0, 0, 0);
-        draw_perf(u, R(content.x, content.y + P(1), content.w, content.h - P(1)));
+        draw_perf(u, content);
     } else {
         /* toolbar */
-        int tby = content.y + P(1);
-        gfx_fill(g, 0, tby, u->w, P(TOOL_H), C_PANEL);
-        u->r_search = R(P(10), tby + P(5), P(220), P(20));
-        gfx_fill(g, u->r_search.x, u->r_search.y, u->r_search.w, u->r_search.h, 0xffffffff);
-        gfx_rect(g, u->r_search.x, u->r_search.y, u->r_search.w, u->r_search.h, u->nsearch ? C_ACCENT : C_BTNB);
+        int tby = content.y;
+        gfx_fill(g, 0, tby, u->w, P(TOOL_H), C_WINBG);
+        u->r_search = R(P(12), tby + P(6), P(260), P(28));
+        int sfocus = u->nsearch > 0;
+        gfx_rrect_b(g, u->r_search.x, u->r_search.y, u->r_search.w, u->r_search.h, P(5), 0xffffffff, sfocus ? C_SELB : C_BTNB);
+        if (sfocus) gfx_rrect(g, u->r_search.x + P(6), u->r_search.y + u->r_search.h - P(2), u->r_search.w - P(12), P(2), P(1), C_SELB);
+        else gfx_hline(g, u->r_search.x + P(4), u->r_search.y + u->r_search.h - P(1), u->r_search.w - P(8), 0xffbdbdbd);
+        /* magnifier glyph */
+        { int gx = u->r_search.x + P(10), gy = u->r_search.y + P(8);
+          for (int k = 0; k < 3; k++) gfx_rrect_a(g, gx + k, gy + k, P(9) - 2 * k, P(9) - 2 * k, P(4), C_DIM, k == 1 ? 255 : 0);
+          gfx_rrect(g, gx + 2, gy + 2, P(9) - 4, P(9) - 4, P(3), sfocus ? 0xffffffff : 0xffffffff);
+          gfx_line_aa(g, gx + P(8), gy + P(8), gx + P(12), gy + P(12), C_DIM); }
         if (u->nsearch) {
-            char sb[80]; snprintf(sb, sizeof sb, "%s_", u->search);
-            gfx_text_clip(g, u->r_search.x + P(6), u->r_search.y + P(5), u->r_search.w - P(28), sb, C_TEXT);
-            gfx_text(g, u->r_search.x + u->r_search.w - P(14), u->r_search.y + P(5), "x", C_DIM);
-        } else gfx_text(g, u->r_search.x + P(6), u->r_search.y + P(5), "Type to search (name, PID, user)", 0xffa0a0a0);
-        char cnt[64]; snprintf(cnt, sizeof cnt, "%d of %d shown", u->nview, u->nproc);
-        gfx_text(g, u->r_search.x + u->r_search.w + P(12), u->r_search.y + P(5), cnt, C_DIM);
+            char sb[80]; snprintf(sb, sizeof sb, "%s", u->search);
+            gfx_text_clip(g, u->r_search.x + P(28), u->r_search.y + (u->r_search.h - gfx_fonth(g)) / 2, u->r_search.w - P(52), sb, C_TEXT);
+            int cx = u->r_search.x + P(28) + gfx_textw(g, sb) + P(1); if (cx < u->r_search.x + u->r_search.w - P(24)) gfx_fill(g, cx, u->r_search.y + P(7), P(1), u->r_search.h - P(14), C_TEXT);
+            int xx = u->r_search.x + u->r_search.w - P(18), xy = u->r_search.y + u->r_search.h / 2;
+            gfx_line_aa(g, xx - P(3), xy - P(3), xx + P(3), xy + P(3), C_DIM); gfx_line_aa(g, xx - P(3), xy + P(3), xx + P(3), xy - P(3), C_DIM);
+        } else gfx_text_v(g, u->r_search.x + P(28), u->r_search.y, u->r_search.h, "Search by name, user or PID", 0xff8a8a8a);
+        char cnt[64]; snprintf(cnt, sizeof cnt, "%d of %d processes", u->nview, u->nproc);
+        gfx_text_v(g, u->r_search.x + u->r_search.w + P(14), u->r_search.y, u->r_search.h, cnt, C_DIM);
 
-        u->r_end = R(u->w - P(100), tby + P(4), P(90), P(22));
+        u->r_end = R(u->w - P(112), tby + P(6), P(100), P(28));
         Proc *sp = find_proc(u, u->sel_pid);
-        if (sp) button(u, u->r_end, "End task", 0, inr(u->r_end, u->mx, u->my));
-        else { gfx_fill(g, u->r_end.x, u->r_end.y, u->r_end.w, u->r_end.h, 0xffececec); gfx_rect(g, u->r_end.x, u->r_end.y, u->r_end.w, u->r_end.h, 0xffd5d5d5);
-               gfx_text(g, u->r_end.x + (u->r_end.w - gfx_textw(g, "End task")) / 2, u->r_end.y + P(6), "End task", 0xffa0a0a0); }
+        if (sp) button(u, u->r_end, "End task", 1, inr(u->r_end, u->mx, u->my));
+        else { gfx_rrect_b(g, u->r_end.x, u->r_end.y, u->r_end.w, u->r_end.h, P(4), 0xffededed, 0xffe2e2e2); gfx_text_mid(g, u->r_end.x, u->r_end.y, u->r_end.w, u->r_end.h, "End task", 0xffa6a6a6); }
         if (u->tab == 0) {
-            u->r_tree = R(u->r_end.x - P(80), tby + P(4), P(70), P(22));
+            u->r_tree = R(u->r_end.x - P(96), tby + P(6), P(86), P(28));
             button(u, u->r_tree, u->tree ? "Tree: on" : "Tree: off", 0, inr(u->r_tree, u->mx, u->my));
         } else u->r_tree = R(0, 0, 0, 0);
-        gfx_hline(g, 0, tby + P(TOOL_H), u->w, C_BORDER);
 
         Table *t = cur_table(u);
-        draw_table(u, t, R(0, tby + P(TOOL_H) + P(1), u->w, content.h - P(TOOL_H) - P(2)));
+        Rect ta = R(P(8), tby + P(TOOL_H), u->w - P(16), content.h - P(TOOL_H) - P(6));
+        gfx_rrect_b(g, ta.x - P(1), ta.y - P(1), ta.w + P(2), ta.h + P(2), P(6), C_PANEL, C_BORDER);
+        gfx_clip(g, ta.x, ta.y, ta.w, ta.h);
+        draw_table(u, t, ta);
+        gfx_noclip(g);
     }
 
     /* status bar */
     int sy = u->h - P(STATUS_H);
     gfx_fill(g, 0, sy, u->w, P(STATUS_H), C_WINBG);
-    gfx_hline(g, 0, sy, u->w, C_BORDER);
     char st[256], up[32]; fmt_time(up, sizeof up, u->sys.uptime);
     if (u->flash_until) snprintf(st, sizeof st, "%s", u->flash);
-    else snprintf(st, sizeof st, "Processes: %d   Threads: %d   CPU: %.0f%%   Memory: %.0f%%   Up time: %s",
+    else snprintf(st, sizeof st, "Processes: %d     Threads: %d     CPU: %.0f%%     Memory: %.0f%%     Up time: %s",
              u->sys.nproc, u->sys.nthreads, u->cpu_pct, u->sys.mem_total ? 100.0 * u->sys.mem_used / u->sys.mem_total : 0, up);
-    gfx_text(g, P(8), sy + (P(STATUS_H) - P(FONT_H)) / 2, st, u->flash_until ? C_ACCENT : C_DIM);
-    gfx_text_r(g, u->w - P(8), sy + (P(STATUS_H) - P(FONT_H)) / 2, u->sys.os, C_DIM);
+    gfx_text_v(g, P(12), sy, P(STATUS_H), st, u->flash_until ? C_ACCENT : C_DIM);
+    gfx_text_rv(g, u->w - P(12), sy, P(STATUS_H), u->sys.os, C_DIM);
 
     /* overlays */
     if (u->menu_open >= 0) {
@@ -1303,8 +1341,8 @@ int ui_event(UI *u, const Event *e)
             u->sel_pid = p->pid;
             if (e->button == 3) { u->ctx_open = 1; u->ctx_x = e->x; u->ctx_y = e->y; u->ctx_pid = p->pid; u->ctx_hover = -1; return 1; }
             if (e->button == 1 && u->tree && t == &u->tp && !u->nsearch && p->nchild) {
-                int bx = t->body.x - t->hscroll + P(4) + p->depth * P(14);
-                if (e->x >= bx - P(2) && e->x <= bx + P(11)) { toggle_collapsed(u, p->pid); rebuild_view(u); return 1; }
+                int bx = t->body.x - t->hscroll + P(6) + p->depth * P(16);
+                if (e->x >= bx - P(2) && e->x <= bx + P(14)) { toggle_collapsed(u, p->pid); rebuild_view(u); return 1; }
             }
             if (e->button == 1 && was) {
                 /* double click emulation: second click on same row within 400ms opens properties */

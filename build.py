@@ -22,7 +22,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(ROOT, "src")
 OUT = os.path.join(ROOT, "build")
 
-COMMON = ["main.c", "ui.c", "gfx.c", "font.c"]
+COMMON = ["main.c", "ui.c", "gfx.c", "icons.c", "png.c"]
 CFLAGS = ["-Os", "-std=c11", "-Wall", "-Wno-unused-parameter", "-Wno-misleading-indentation",
           "-Wno-format-truncation", "-Wno-missing-field-initializers",
           "-fno-unwind-tables", "-fno-asynchronous-unwind-tables",
@@ -36,7 +36,7 @@ TARGETS = {
                       ["-ldl", "-lm", "-s", "-Wl,--gc-sections"], "taskmgr"),
     "windows":       ("Windows x64",          "x86_64-windows-gnu",     ["sys_win.c", "win_w32.c"],
                       ["-Wl,--subsystem,windows", "-lgdi32", "-luser32", "-ladvapi32", "-liphlpapi",
-                       "-lpowrprof", "-s", "-Wl,--gc-sections"], "taskmgr.exe"),
+                       "-lpowrprof", "-lshell32", "-s", "-Wl,--gc-sections"], "taskmgr.exe"),
     "macos":         ("macOS  Intel",         "x86_64-macos",           ["sys_mac.c", "win_mac.c"],
                       ["-Wl,-dead_strip"], "taskmgr"),
     "macos-arm64":   ("macOS  Apple Silicon", "aarch64-macos",          ["sys_mac.c", "win_mac.c"],

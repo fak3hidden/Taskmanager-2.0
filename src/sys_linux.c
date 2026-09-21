@@ -327,3 +327,104 @@ int sys_kill(int pid)
     if (kill(pid, SIGTERM) == 0) return 0;
     return kill(pid, SIGKILL);
 }
+
+/* ---- application icons ------------------------------------------------------
+ * Resolve the executable to a freedesktop .desktop entry (by Exec= basename or
+ * by file name), read its Icon= and load a PNG from the hicolor / theme dirs. */
+#include <sys/stat.h>
+
+static const char *icon_dirs[] = { "/usr/share/icons", "/usr/local/share/icons", "/var/lib/flatpak/exports/share/icons", "/snap/current/usr/share/icons", NULL };
+static const char *app_dirs[] = { "/usr/share/applications", "/usr/local/share/applications", "/var/lib/flatpak/exports/share/applications", "/var/lib/snapd/desktop/applications", NULL };
+static const char *themes[] = { "hicolor", "Adwaita", "breeze", "Papirus", "Yaru", "elementary", "gnome", NULL };
+static const char *sizes_small[] = { "16x16", "22x22", "24x24", "32x32", "48x48", "scalable", NULL };
+static const char *sizes_big[] = { "32x32", "48x48", "24x24", "64x64", "22x22", "16x16", NULL };
+
+static int file_exists(const char *p) { struct stat st; return stat(p, &st) == 0 && S_ISREG(st.st_mode); }
+
+static int load_png_scaled(const char *path, int size, uint32_t *out)
+{
+    FILE *f = fopen(path, "rb"); if (!f) return 0;
+    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
+    if (n <= 0 || n > 4 << 20) { fclose(f); return 0; }
+    unsigned char *d = malloc((size_t)n); size_t r = fread(d, 1, (size_t)n, f); fclose(f);
+    uint32_t *px; int w, h, ok = 0;
+    if (r == (size_t)n && png_decode(d, r, &px, &w, &h) == 0) { icon_scale(px, w, h, out, size); free(px); ok = 1; }
+    free(d);
+    return ok;
+}
+
+static int find_icon_png(const char *name, int size, uint32_t *out)
+{
+    char path[512];
+    if (name[0] == '/') return strstr(name, ".png") && load_png_scaled(name, size, out);
+    const char **sizes = size > 20 ? sizes_big : sizes_small;
+    for (int d = 0; icon_dirs[d]; d++)
+        for (int t = 0; themes[t]; t++)
+            for (int s = 0; sizes[s]; s++) {
+                static const char *cats[] = { "apps", "legacy", "mimetypes", "categories", NULL };
+                for (int c = 0; cats[c]; c++) {
+                    snprintf(path, sizeof path, "%s/%s/%s/%s/%s.png", icon_dirs[d], themes[t], sizes[s], cats[c], name);
+                    if (file_exists(path)) return load_png_scaled(path, size, out);
+                }
+            }
+    snprintf(path, sizeof path, "/usr/share/pixmaps/%s.png", name);
+    if (file_exists(path)) return load_png_scaled(path, size, out);
+    return 0;
+}
+
+/* scan .desktop files once; map exec-basename -> icon name */
+typedef struct { char exe[48], icon[96]; } DesktopEnt;
+static DesktopEnt *dents; static int ndents, dents_loaded;
+
+static void load_desktop_files(void)
+{
+    dents_loaded = 1;
+    for (int d = 0; app_dirs[d]; d++) {
+        DIR *dir = opendir(app_dirs[d]); if (!dir) continue;
+        struct dirent *e;
+        while ((e = readdir(dir))) {
+            size_t l = strlen(e->d_name);
+            if (l < 9 || strcmp(e->d_name + l - 8, ".desktop")) continue;
+            char path[512]; snprintf(path, sizeof path, "%s/%s", app_dirs[d], e->d_name);
+            FILE *f = fopen(path, "r"); if (!f) continue;
+            char line[512], exec[256] = "", icon[96] = ""; int in_main = 0;
+            while (fgets(line, sizeof line, f)) {
+                if (line[0] == '[') { in_main = !strncmp(line, "[Desktop Entry]", 15); continue; }
+                if (!in_main) continue;
+                if (!strncmp(line, "Exec=", 5) && !exec[0]) snprintf(exec, sizeof exec, "%s", line + 5);
+                else if (!strncmp(line, "Icon=", 5)) { snprintf(icon, sizeof icon, "%s", line + 5); icon[strcspn(icon, "\r\n")] = 0; }
+            }
+            fclose(f);
+            if (!exec[0] || !icon[0]) continue;
+            /* basename of first token of Exec, skipping env wrappers */
+            char *tok = strtok(exec, " \t\r\n");
+            while (tok && (!strcmp(tok, "env") || strchr(tok, '=') || !strcmp(tok, "sh") || !strcmp(tok, "flatpak") || !strcmp(tok, "run"))) tok = strtok(NULL, " \t\r\n");
+            if (!tok) continue;
+            char *base = strrchr(tok, '/'); base = base ? base + 1 : tok;
+            if (!*base) continue;
+            dents = realloc(dents, (ndents + 1) * sizeof *dents);
+            snprintf(dents[ndents].exe, sizeof dents[ndents].exe, "%s", base);
+            snprintf(dents[ndents].icon, sizeof dents[ndents].icon, "%s", icon);
+            ndents++;
+        }
+        closedir(dir);
+    }
+}
+
+int os_icon_load(const Proc *p, int size, uint32_t *out)
+{
+    if (p->cmd[0] == '[') return 0;
+    if (!dents_loaded) load_desktop_files();
+    /* candidates: process name, exe basename */
+    char exe[64] = ""; char link[64], target[512];
+    snprintf(link, sizeof link, "/proc/%d/exe", p->pid);
+    ssize_t n = readlink(link, target, sizeof target - 1);
+    if (n > 0) { target[n] = 0; char *b = strrchr(target, '/'); snprintf(exe, sizeof exe, "%s", b ? b + 1 : target); }
+    const char *cands[3] = { p->name, exe[0] ? exe : NULL, NULL };
+    for (int c = 0; c < 2 && cands[c]; c++) {
+        for (int i = 0; i < ndents; i++)
+            if (!strcasecmp(dents[i].exe, cands[c]) && find_icon_png(dents[i].icon, size, out)) return 1;
+        if (find_icon_png(cands[c], size, out)) return 1;
+    }
+    return 0;
+}

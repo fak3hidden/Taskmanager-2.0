@@ -170,3 +170,51 @@ int sys_procs(Proc **arr, int *n, int *cap)
 }
 
 int sys_kill(int pid) { if (kill(pid, SIGTERM) == 0) return 0; return kill(pid, SIGKILL); }
+
+/* ---- application icons: NSWorkspace iconForFile: via the objc runtime ------- */
+#include <dlfcn.h>
+typedef void *id, *SEL;
+typedef struct { double x, y; } CGPoint_; typedef struct { double w, h; } CGSize_; typedef struct { CGPoint_ o; CGSize_ s; } CGRect_;
+
+int os_icon_load(const Proc *p, int size, uint32_t *out)
+{
+    static int tried; static id (*getClass)(const char *); static SEL (*sel)(const char *); static void *send;
+    static void *(*CGBitmapContextCreate_)(void *, size_t, size_t, size_t, size_t, void *, uint32_t);
+    static void *(*CGColorSpaceCreateDeviceRGB_)(void); static void (*CGContextRelease_)(void *);
+    static void (*CGContextDrawImage_)(void *, CGRect_, void *);
+    if (!tried) {
+        tried = 1;
+        void *objc = dlopen("/usr/lib/libobjc.A.dylib", RTLD_NOW);
+        void *ak = dlopen("/System/Library/Frameworks/AppKit.framework/AppKit", RTLD_NOW);
+        void *cg = dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", RTLD_NOW);
+        if (!objc || !ak || !cg) return 0;
+        *(void **)&getClass = dlsym(objc, "objc_getClass"); *(void **)&sel = dlsym(objc, "sel_registerName"); send = dlsym(objc, "objc_msgSend");
+        *(void **)&CGBitmapContextCreate_ = dlsym(cg, "CGBitmapContextCreate"); *(void **)&CGColorSpaceCreateDeviceRGB_ = dlsym(cg, "CGColorSpaceCreateDeviceRGB");
+        *(void **)&CGContextRelease_ = dlsym(cg, "CGContextRelease"); *(void **)&CGContextDrawImage_ = dlsym(cg, "CGContextDrawImage");
+    }
+    if (!getClass || !CGBitmapContextCreate_ || p->cmd[0] != '/') return 0;
+    /* find the enclosing .app bundle if any, else use the executable path */
+    char path[512]; snprintf(path, sizeof path, "%s", p->cmd);
+    char *app = strstr(path, ".app/"); if (app) app[4] = 0;
+    else return 0;   /* plain unix binaries have no icon; use generic */
+    id ws = ((id (*)(id, SEL))send)(getClass("NSWorkspace"), sel("sharedWorkspace"));
+    id nspath = ((id (*)(id, SEL, const char *))send)(getClass("NSString"), sel("stringWithUTF8String:"), path);
+    id img = ((id (*)(id, SEL, id))send)(ws, sel("iconForFile:"), nspath);
+    if (!img) return 0;
+    CGRect_ r = { { 0, 0 }, { (double)size, (double)size } };
+    void *cs = CGColorSpaceCreateDeviceRGB_();
+    /* kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little = 0x2002 -> BGRA in memory = ARGB uint32 LE */
+    void *ctx = CGBitmapContextCreate_(out, size, size, 8, size * 4, cs, 0x2002);
+    if (!ctx) return 0;
+    memset(out, 0, (size_t)size * size * 4);
+    void *cgimg = ((void *(*)(id, SEL, CGRect_ *, id, id))send)(img, sel("CGImageForProposedRect:context:hints:"), &r, NULL, NULL);
+    if (cgimg) CGContextDrawImage_(ctx, r, cgimg);
+    CGContextRelease_(ctx);
+    /* un-premultiply */
+    for (int i = 0; i < size * size; i++) {
+        uint32_t px = out[i]; unsigned a = px >> 24; if (!a || a == 255) continue;
+        unsigned rr = ((px >> 16) & 255) * 255 / a, gg = ((px >> 8) & 255) * 255 / a, bb = (px & 255) * 255 / a;
+        out[i] = (a << 24) | (rr > 255 ? 255 : rr) << 16 | (gg > 255 ? 255 : gg) << 8 | (bb > 255 ? 255 : bb);
+    }
+    return cgimg != NULL;
+}

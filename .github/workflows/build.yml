@@ -28,7 +28,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - run: gcc -Os -std=c11 -o taskmgr.exe src/main.c src/ui.c src/gfx.c src/font.c src/sys_win.c src/win_w32.c -Wl,--subsystem,windows -lgdi32 -luser32 -ladvapi32 -liphlpapi -lpowrprof -s
+      - run: gcc -Os -std=c11 -o taskmgr.exe src/main.c src/ui.c src/gfx.c src/icons.c src/png.c src/sys_win.c src/win_w32.c -Wl,--subsystem,windows -lgdi32 -luser32 -ladvapi32 -liphlpapi -lpowrprof -lshell32 -s
       - run: .\taskmgr.exe --dump
       - run: .\taskmgr.exe --screenshot shot.bmp --tab 1
   macos-native:
