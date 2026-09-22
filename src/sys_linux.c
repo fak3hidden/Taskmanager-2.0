@@ -335,6 +335,35 @@ static uint64_t proc_start_of(int pid)
     return t ? (uint64_t)strtoull(t, NULL, 10) : 0;
 }
 
+static int theme_text_dark(const char *s)
+{
+    if (!s) return 0;
+    return strcasestr(s, "dark") != NULL || strcasestr(s, "prefer-dark") != NULL;
+}
+
+int sys_theme_dark(void)
+{
+    const char *force = getenv("TM_THEME");
+    if (force && (!strcasecmp(force, "dark") || !strcasecmp(force, "1"))) return 1;
+    if (force && (!strcasecmp(force, "light") || !strcasecmp(force, "0"))) return 0;
+    const char *gtk = getenv("GTK_THEME");
+    if (theme_text_dark(gtk)) return 1;
+    const char *home = getenv("HOME");
+    if (home) {
+        char path[512], buf[4096];
+        snprintf(path, sizeof path, "%s/.config/kdeglobals", home);
+        if (read_file(path, buf, sizeof buf) > 0 && theme_text_dark(buf)) return 1;
+        snprintf(path, sizeof path, "%s/.config/gtk-3.0/settings.ini", home);
+        if (read_file(path, buf, sizeof buf) > 0 && theme_text_dark(buf)) return 1;
+    }
+    /* GNOME exposes the appearance without requiring a desktop toolkit. */
+    FILE *f = popen("gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null", "r");
+    if (f) { char buf[128] = ""; fgets(buf, sizeof buf, f); pclose(f); if (theme_text_dark(buf)) return 1; }
+    f = popen("gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null", "r");
+    if (f) { char buf[128] = ""; fgets(buf, sizeof buf, f); pclose(f); if (theme_text_dark(buf)) return 1; }
+    return 0;
+}
+
 int sys_self_pid(void) { return (int)getpid(); }
 
 int sys_spawn(const char *cmdline)

@@ -6,36 +6,99 @@
 #include <ctype.h>
 #include <math.h>
 
-/* ---- palette (Windows 11 light, Mica-ish) -------------------------- */
-#define C_WINBG   0xfff3f3f3
-#define C_PANEL   0xffffffff
-#define C_BORDER  0xffe0e0e0
-#define C_LINE    0xffededed
-#define C_TEXT    0xff1b1b1b
-#define C_DIM     0xff616161
-#define C_SEL     0xffdbeafe
-#define C_SELB    0xff0078d4
-#define C_HOVER   0xfff2f6fb
-#define C_ACCENT  0xff0067c0
-#define C_ACCENT2 0xff1a7fd6
-#define C_BTN     0xfffbfbfb
-#define C_BTNB    0xffd9d9d9
-#define C_HDR     0xffffffff
-#define C_MENU    0xfff9f9f9
-#define C_SHADOW  0xff000000
+/* ---- palette ----------------------------------------------------------
+ * The renderer is deliberately tiny, so the palette is a runtime value rather
+ * than a second widget/theme framework. ui_set_theme() swaps semantic colours
+ * for dark mode while keeping the renderer and binary small. */
+typedef struct {
+    uint32_t winbg, panel, border, line, text, dim, sel, selb, hover;
+    uint32_t accent, accent2, btn, btnb, hdr, menu, shadow;
+    uint32_t cpu, cpuf, cpug, mem, memf, memg, disk, diskf, diskg, net, netf, netg;
+    uint32_t heat0, heat1, heat2, thumb, btn_hover, btn_border_hover, btn_edge;
+    uint32_t danger, danger_hover, warning, paused_bg, disabled, placeholder, white;
+    int dark;
+} Theme;
 
-#define C_CPU     0xff117dbb
-#define C_CPUF    0xffe9f3fa
-#define C_CPUG    0xffd0e4f2
-#define C_MEM     0xff8b12ae
-#define C_MEMF    0xfff4e8f8
-#define C_MEMG    0xffe6cfee
-#define C_DISK    0xff4da60a
-#define C_DISKF   0xffebf6e2
-#define C_DISKG   0xffd2e8c0
-#define C_NET     0xffa74f01
-#define C_NETF    0xfffbefe3
-#define C_NETG    0xfff1dcc4
+#define C_WINBG   (theme.winbg)
+#define C_PANEL   (theme.panel)
+#define C_BORDER  (theme.border)
+#define C_LINE    (theme.line)
+#define C_TEXT    (theme.text)
+#define C_DIM     (theme.dim)
+#define C_SEL     (theme.sel)
+#define C_SELB    (theme.selb)
+#define C_HOVER   (theme.hover)
+#define C_ACCENT  (theme.accent)
+#define C_ACCENT2 (theme.accent2)
+#define C_BTN     (theme.btn)
+#define C_BTNB    (theme.btnb)
+#define C_HDR     (theme.hdr)
+#define C_MENU    (theme.menu)
+#define C_SHADOW  (theme.shadow)
+#define C_CPU     (theme.cpu)
+#define C_CPUF    (theme.cpuf)
+#define C_CPUG    (theme.cpug)
+#define C_MEM     (theme.mem)
+#define C_MEMF    (theme.memf)
+#define C_MEMG    (theme.memg)
+#define C_DISK    (theme.disk)
+#define C_DISKF   (theme.diskf)
+#define C_DISKG   (theme.diskg)
+#define C_NET     (theme.net)
+#define C_NETF    (theme.netf)
+#define C_NETG    (theme.netg)
+#define C_HEAT0   (theme.heat0)
+#define C_HEAT1   (theme.heat1)
+#define C_HEAT2   (theme.heat2)
+#define C_THUMB   (theme.thumb)
+#define C_BTNH    (theme.btn_hover)
+#define C_BTNBH   (theme.btn_border_hover)
+#define C_BTNEDGE (theme.btn_edge)
+#define C_DANGER  (theme.danger)
+#define C_DANGERH (theme.danger_hover)
+#define C_WARNING (theme.warning)
+#define C_PAUSED  (theme.paused_bg)
+#define C_DISABLED (theme.disabled)
+#define C_PLACE   (theme.placeholder)
+#define C_WHITE   (theme.white)
+
+static Theme theme = {
+    0xfff3f3f3, 0xffffffff, 0xffe0e0e0, 0xffededed, 0xff1b1b1b, 0xff616161,
+    0xffdbeafe, 0xff0078d4, 0xfff2f6fb, 0xff0067c0, 0xff1a7fd6,
+    0xfffbfbfb, 0xffd9d9d9, 0xffffffff, 0xfff9f9f9, 0xff000000,
+    0xff117dbb, 0xffe9f3fa, 0xffd0e4f2, 0xff8b12ae, 0xfff4e8f8, 0xffe6cfee,
+    0xff4da60a, 0xffebf6e2, 0xffd2e8c0, 0xffa74f01, 0xfffbefe3, 0xfff1dcc4,
+    0xfffff9ed, 0xffffe0a8, 0xfff5a25a, 0xffc4c4c4, 0xfff4f4f4, 0xffc8c8c8,
+    0xffcccccc, 0xffc42b1c, 0xffd93a2a, 0xff9d5d00, 0xfffde7e9, 0xffa6a6a6,
+    0xff8a8a8a, 0xffffffff, 0
+};
+
+static void theme_set(int dark)
+{
+    if (!dark) {
+        theme = (Theme){
+            0xfff3f3f3, 0xffffffff, 0xffe0e0e0, 0xffededed, 0xff1b1b1b, 0xff616161,
+            0xffdbeafe, 0xff0078d4, 0xfff2f6fb, 0xff0067c0, 0xff1a7fd6,
+            0xfffbfbfb, 0xffd9d9d9, 0xffffffff, 0xfff9f9f9, 0xff000000,
+            0xff117dbb, 0xffe9f3fa, 0xffd0e4f2, 0xff8b12ae, 0xfff4e8f8, 0xffe6cfee,
+            0xff4da60a, 0xffebf6e2, 0xffd2e8c0, 0xffa74f01, 0xfffbefe3, 0xfff1dcc4,
+            0xfffff9ed, 0xffffe0a8, 0xfff5a25a, 0xffc4c4c4, 0xfff4f4f4, 0xffc8c8c8,
+            0xffcccccc, 0xffc42b1c, 0xffd93a2a, 0xff9d5d00, 0xfffde7e9, 0xffa6a6a6,
+            0xff8a8a8a, 0xffffffff, 0
+        };
+    } else {
+        theme = (Theme){
+            0xff202020, 0xff2b2b2b, 0xff454545, 0xff383838, 0xfff1f1f1, 0xffbdbdbd,
+            0xff29445d, 0xff4cc2ff, 0xff343a40, 0xff4cc2ff, 0xff65cbff,
+            0xff333333, 0xff555555, 0xff2b2b2b, 0xff2d2d2d, 0xff000000,
+            0xff4cc2ff, 0xff173746, 0xff2b5261, 0xffd66ee3, 0xff432c49, 0xff63476a,
+            0xff73c991, 0xff263d30, 0xff3f634b, 0xffffb15c, 0xff493725, 0xff644d35,
+            0xff332d20, 0xff6b5531, 0xffb98345, 0xff666666, 0xff3b3b3b, 0xff626262,
+            0xff707070, 0xffff6b5f, 0xffff8b82, 0xffffbd69, 0xff4d292d, 0xff777777,
+            0xff999999, 0xfff1f1f1, 1
+        };
+    }
+}
 
 #define MENU_H 24
 #define TAB_H 36
@@ -70,7 +133,7 @@ typedef struct {
 typedef struct { const char *label; const char *key; int id; int check; int sep; } MenuItem;
 
 enum { A_NONE, A_EXIT, A_RUN, A_RESTART_SHELL, A_REFRESH, A_SPEED_HIGH, A_SPEED_NORMAL, A_SPEED_LOW, A_SPEED_PAUSE, A_TREE,
-       A_KERNEL, A_ONLYME, A_CORES, A_ABOUT, A_END, A_END_TREE, A_PROPS, A_GOTO_DETAILS, A_GOTO_PROC,
+       A_KERNEL, A_ONLYME, A_THEME_SYSTEM, A_THEME_LIGHT, A_THEME_DARK, A_CORES, A_ABOUT, A_END, A_END_TREE, A_PROPS, A_GOTO_DETAILS, A_GOTO_PROC,
        A_EXPAND_ALL, A_COLLAPSE_ALL, A_TAB_PROC, A_TAB_PERF, A_TAB_DET };
 
 enum { DLG_NONE, DLG_END, DLG_END_TREE, DLG_PROPS, DLG_ABOUT, DLG_ERROR, DLG_END_CRIT, DLG_RUN };
@@ -89,6 +152,7 @@ struct UI {
     float cpu_pct, core_pct[MAX_CPUS];
     double drd, dwr, nrx, ntx;      /* current rates */
     int interval_ms, paused; uint64_t last_sample; int nsamples;
+    int theme_mode; uint64_t theme_check_ns;
     Table tp, td; int tree, show_kernel, only_me;
     int sel_pid;
     char search[64]; int nsearch;
@@ -215,6 +279,8 @@ static void tables_init(UI *u)
     t->sort_col = CL_CPU; t->sort_dir = -1; t->hdr_h = 26; t->row_h = 22; t->hover_row = -1;
 }
 
+static void rebuild_view(UI *u);
+
 /* ---- lifecycle ----------------------------------------------------------- */
 UI *ui_create(int scale)
 {
@@ -222,6 +288,9 @@ UI *ui_create(int scale)
     u->s = scale < 1 ? 1 : scale;
     sys_init(&u->sys);
     u->prev = u->sys;
+    u->theme_mode = TM_THEME_SYSTEM;
+    theme_set(sys_theme_dark());
+    u->theme_check_ns = sys_now_ns() + 5000000000ull;
     u->hcore = calloc(MAX_CPUS, sizeof *u->hcore);
     u->interval_ms = 1000;
     u->menu_open = -1; u->sel_pid = -1; u->ctx_pid = -1;
@@ -244,8 +313,15 @@ void ui_resize(UI *u, int w, int h)
     gfx_init(&u->g, u->px, w, h, u->s);
 }
 
-void ui_set_interval(UI *u, int ms) { u->interval_ms = ms; }
-void ui_set_tab(UI *u, int tab, int perf_page) { u->tab = tab; u->perf_page = perf_page; }
+void ui_set_interval(UI *u, int ms) { if (ms < 100) ms = 100; u->interval_ms = ms; }
+void ui_set_theme(UI *u, int mode)
+{
+    if (mode < TM_THEME_SYSTEM || mode > TM_THEME_DARK) mode = TM_THEME_SYSTEM;
+    u->theme_mode = mode;
+    theme_set(mode == TM_THEME_DARK || (mode == TM_THEME_SYSTEM && sys_theme_dark()));
+    u->theme_check_ns = sys_now_ns() + 5000000000ull;
+}
+void ui_set_tab(UI *u, int tab, int perf_page) { u->tab = tab; u->perf_page = perf_page; rebuild_view(u); }
 const uint32_t *ui_pixels(UI *u, int *w, int *h) { *w = u->w; *h = u->h; return u->px; }
 
 /* ---- sorting / view ------------------------------------------------------ */
@@ -437,6 +513,11 @@ int ui_tick(UI *u)
 {
     uint64_t now = sys_now_ns();
     int redraw = 0;
+    if (u->theme_mode == TM_THEME_SYSTEM && now >= u->theme_check_ns) {
+        u->theme_check_ns = now + 5000000000ull;
+        int dark = sys_theme_dark();
+        if (dark != theme.dark) { theme_set(dark); redraw = 1; }
+    }
     if (u->flash_until && now > u->flash_until) { u->flash_until = 0; redraw = 1; }
     if (u->paused && u->nsamples) return redraw;
     if (now - u->last_sample >= (uint64_t)u->interval_ms * 1000000ull || !u->nsamples) {
@@ -492,8 +573,8 @@ static uint32_t heat_color(float t)
     if (t < 0) return C_PANEL;
     if (t > 1) t = 1;
     t = sqrtf(t);
-    if (t < 0.5f) return gfx_lerp(0xfffff9ed, 0xffffe0a8, t * 2);
-    return gfx_lerp(0xffffe0a8, 0xfff5a25a, (t - 0.5f) * 2);
+    if (t < 0.5f) return gfx_lerp(C_HEAT0, C_HEAT1, t * 2);
+    return gfx_lerp(C_HEAT1, C_HEAT2, (t - 0.5f) * 2);
 }
 
 /* ---- widgets --------------------------------------------------------------- */
@@ -503,12 +584,12 @@ static Rect R(int x, int y, int w, int h) { Rect r = { x, y, w, h }; return r; }
 static void button(UI *u, Rect r, const char *label, int primary, int hover)
 {
     Gfx *g = &u->g;
-    uint32_t bg = primary ? (hover ? C_ACCENT2 : C_ACCENT) : (hover ? 0xfff4f4f4 : C_BTN);
-    uint32_t bd = primary ? bg : (hover ? 0xffc8c8c8 : C_BTNB);
+    uint32_t bg = primary ? (hover ? C_ACCENT2 : C_ACCENT) : (hover ? C_BTNH : C_BTN);
+    uint32_t bd = primary ? bg : (hover ? C_BTNBH : C_BTNB);
     gfx_rrect_b(g, r.x, r.y, r.w, r.h, P(4), bg, bd);
-    if (!primary) gfx_hline(g, r.x + P(3), r.y + r.h - P(1), r.w - P(6), 0xffcccccc);   /* subtle bottom edge */
+    if (!primary) gfx_hline(g, r.x + P(3), r.y + r.h - P(1), r.w - P(6), C_BTNEDGE);   /* subtle bottom edge */
     gfx_font(g, F_UI);
-    gfx_text_mid(g, r.x, r.y, r.w, r.h, label, primary ? 0xffffffff : C_TEXT);
+    gfx_text_mid(g, r.x, r.y, r.w, r.h, label, primary ? C_WHITE : C_TEXT);
 }
 
 static void checkbox_mark(UI *u, int x, int y, uint32_t c)
@@ -679,8 +760,8 @@ static void draw_table(UI *u, Table *t, Rect area)
             }
             char b[256]; cell_text(u, p, c->id, b, sizeof b);
             uint32_t col = C_TEXT;
-            if (c->id == CL_STATUS && p->state == 'Z') col = 0xffc42b1c;
-            if (c->id == CL_STATUS && (p->state == 'T' || p->state == 't' || p->state == 'D')) col = 0xff9d5d00;
+            if (c->id == CL_STATUS && p->state == 'Z') col = C_DANGER;
+            if (c->id == CL_STATUS && (p->state == 'T' || p->state == 't' || p->state == 'D')) col = C_WARNING;
             if (c->id == CL_NAME) {
                 int ind = tree ? p->depth * P(16) : 0;
                 int cx = x + P(6) + ind;
@@ -712,7 +793,7 @@ static void draw_table(UI *u, Table *t, Rect area)
         gfx_fill(g, hb.x, hb.y, hb.w, hb.h, C_PANEL);
         int tw = hb.w * t->body.w / totw; if (tw < P(24)) tw = P(24);
         int tx = hb.x + (int)((long)(hb.w - tw) * t->hscroll / maxh);
-        gfx_rrect(g, tx, hb.y + P(3), tw, hb.h - P(6), P(3), 0xffc4c4c4);
+        gfx_rrect(g, tx, hb.y + P(3), tw, hb.h - P(6), P(3), C_THUMB);
     }
 
     /* vertical scrollbar */
@@ -721,7 +802,7 @@ static void draw_table(UI *u, Table *t, Rect area)
     if (u->nview > rows) {
         int th = sb.h * rows / u->nview; if (th < P(24)) th = P(24);
         int ty = sb.y + (int)((long)(sb.h - th) * t->scroll / maxs);
-        gfx_rrect(g, sb.x + P(3), ty, sb.w - P(6), th, P(3), 0xffc4c4c4);
+        gfx_rrect(g, sb.x + P(3), ty, sb.w - P(6), th, P(3), C_THUMB);
     }
 }
 
@@ -769,7 +850,7 @@ static void draw_perf(UI *u, Rect a)
 {
     Gfx *g = &u->g;
     gfx_fill(g, a.x, a.y, a.w, a.h, C_WINBG);
-    int lw = P(236);
+    int lw = a.w < P(700) ? P(180) : P(236);
     gfx_font(g, F_UI);
     const char *names[4] = { "CPU", "Memory", "Disk", "Network" };
     char sub[4][48];
@@ -787,7 +868,7 @@ static void draw_perf(UI *u, Rect a)
         Rect it = R(a.x + P(8), a.y + P(8) + i * P(74), lw - P(12), P(70));
         u->r_perf[i] = it;
         if (u->perf_page == i) gfx_rrect_b(g, it.x, it.y, it.w, it.h, P(6), C_PANEL, C_BORDER);
-        else if (inr(it, u->mx, u->my)) gfx_rrect(g, it.x, it.y, it.w, it.h, P(6), 0xffeaeaea);
+        else if (inr(it, u->mx, u->my)) gfx_rrect(g, it.x, it.y, it.w, it.h, P(6), C_HOVER);
         if (u->perf_page == i) gfx_rrect(g, it.x, it.y + P(20), P(3), it.h - P(40), P(2), C_SELB);
         Rect gr = R(it.x + P(12), it.y + P(10), P(70), P(50));
         const float *ha = i == 0 ? u->hcpu : i == 1 ? u->hmem : i == 2 ? u->hdrd : u->hnrx;
@@ -801,6 +882,7 @@ static void draw_perf(UI *u, Rect a)
     Rect card = R(a.x + lw, a.y + P(8), a.w - lw - P(8), a.h - P(16));
     gfx_rrect_b(g, card.x, card.y, card.w, card.h, P(8), C_PANEL, C_BORDER);
     int mx = card.x + P(20), my = card.y + P(14), mw = card.w - P(40);
+    int narrow = card.w < P(460), compact = card.h < P(340);
     char t2[96];
     gfx_font(g, F_BIG); gfx_text(g, mx, my, names[u->perf_page], C_TEXT);
     if (u->perf_page == 0) snprintf(t2, sizeof t2, "%s", u->sys.cpu_model[0] ? u->sys.cpu_model : "Unknown CPU");
@@ -808,13 +890,16 @@ static void draw_perf(UI *u, Rect a)
     else if (u->perf_page == 2) snprintf(t2, sizeof t2, "All physical disks");
     else snprintf(t2, sizeof t2, "All interfaces (excluding loopback)");
     gfx_font(g, F_UI);
-    gfx_text_rv(g, mx + mw, my, P(28), t2, C_DIM);
+    if (narrow) gfx_text_clip(g, mx, my + P(24), mw, t2, C_DIM);
+    else gfx_text_rv(g, mx + mw, my, P(28), t2, C_DIM);
 
-    Rect r_expand = R(mx + mw - P(150), my + P(34), P(150), P(24));
+    Rect r_expand = R(mx + mw - P(150), my + P(narrow ? 44 : 34), P(150), P(24));
     u->r_cores = u->perf_page == 0 ? r_expand : R(0, 0, 0, 0);
     if (u->perf_page == 0) button(u, r_expand, u->perf_cores ? "Overall utilization" : "Logical processors", 0, inr(r_expand, u->mx, u->my));
 
-    int gy = my + P(78), gh = card.h * 42 / 100; if (gh < P(120)) gh = P(120);
+    int gy = my + P(narrow ? 94 : 78), gh = card.h * 42 / 100;
+    if (compact) { gh = card.h - P(narrow ? 138 : 122); if (gh < P(72)) gh = P(72); }
+    else if (gh < P(120)) gh = P(120);
     int seconds = HIST * u->interval_ms / 1000;
     char secs[32]; snprintf(secs, sizeof secs, "%d seconds", seconds);
     int page = u->perf_page;
@@ -842,7 +927,7 @@ static void draw_perf(UI *u, Rect a)
         graph(u, gr, ha, hb, page < 2 ? 100 : page == 2 ? dm : nm, lc[page], fc[page], gc[page], 0);
         gfx_text(g, mx, gy + gh + P(5), secs, C_DIM);
         gfx_text_r(g, mx + mw, gy + gh + P(5), "0", C_DIM);
-        if (hb) {
+        if (hb && !narrow) {
             int lx = mx + P(120), ly = gy + gh + P(5);
             gfx_fill(g, lx, ly + P(7), P(18), P(2), lc[page]);
             gfx_text(g, lx + P(24), ly, page == 2 ? "Read" : "Receive", C_DIM);
@@ -851,6 +936,10 @@ static void draw_perf(UI *u, Rect a)
             gfx_text(g, dx + P(24), ly, page == 2 ? "Write" : "Send", C_DIM);
         }
     }
+
+    /* At the minimum window size the graph is the useful control. Detailed
+     * figures remain available as soon as the window has room for them. */
+    if (compact) return;
 
     /* stats */
     int sy = gy + gh + P(30), colw = P(130);
@@ -938,6 +1027,9 @@ static int menu_items(UI *u, int m, MenuItem *out)
     case 1:
         out[n++] = (MenuItem){ "Show kernel threads", "Ctrl+K", A_KERNEL, u->show_kernel, 0 };
         out[n++] = (MenuItem){ "Only my processes", "Ctrl+U", A_ONLYME, u->only_me, 0 };
+        out[n++] = (MenuItem){ "Theme: System", "", A_THEME_SYSTEM, u->theme_mode == TM_THEME_SYSTEM, 1 };
+        out[n++] = (MenuItem){ "Theme: Light", "", A_THEME_LIGHT, u->theme_mode == TM_THEME_LIGHT, 0 };
+        out[n++] = (MenuItem){ "Theme: Dark", "", A_THEME_DARK, u->theme_mode == TM_THEME_DARK, 0 };
         break;
     case 2:
         out[n++] = (MenuItem){ "Processes", "Ctrl+1", A_TAB_PROC, u->tab == 0, 0 };
@@ -983,7 +1075,7 @@ static void draw_dropdown(UI *u, Rect *out, int x, int y, MenuItem *items, int n
     int iy = y + P(4);
     for (int i = 0; i < n; i++) {
         if (items[i].sep) { gfx_hline(g, x + P(8), iy + P(4), w - P(16), C_BORDER); iy += P(9); }
-        if (i == hover) gfx_rrect(g, x + P(4), iy, w - P(8), ih, P(4), 0xffe9e9e9);
+        if (i == hover) gfx_rrect(g, x + P(4), iy, w - P(8), ih, P(4), C_HOVER);
         if (items[i].check) checkbox_mark(u, x + P(12), iy + (ih - P(10)) / 2, C_TEXT);
         gfx_text_v(g, x + P(30), iy, ih, items[i].label, C_TEXT);
         gfx_text_rv(g, x + w - P(12), iy, ih, items[i].key, C_DIM);
@@ -1003,6 +1095,16 @@ static int dropdown_hit(UI *u, Rect dd, MenuItem *items, int n, int x, int y)
 }
 
 /* ---- dialogs -------------------------------------------------------------------- */
+static void shortcut_item(UI *u, int x, int y, int w, const char *key, const char *label)
+{
+    Gfx *g = &u->g;
+    int kw = gfx_textw(g, key) + P(14);
+    if (kw < P(52)) kw = P(52);
+    gfx_rrect_b(g, x, y + P(1), kw, P(20), P(4), C_BTN, C_BTNB);
+    gfx_font(g, F_UI); gfx_text_mid(g, x, y + P(1), kw, P(20), key, C_DIM);
+    gfx_text_clip(g, x + kw + P(10), y, w - kw - P(10), label, C_TEXT);
+}
+
 static void draw_dialog(UI *u)
 {
     Gfx *g = &u->g;
@@ -1010,9 +1112,14 @@ static void draw_dialog(UI *u)
     gfx_blend(g, 0, 0, u->w, u->h, 0xff000000, 90);
     int w = P(440), h = P(190);
     if (u->dlg == DLG_PROPS) { w = P(560); h = P(330); }
-    if (u->dlg == DLG_ABOUT) { w = P(460); h = P(250); }
+    if (u->dlg == DLG_ABOUT) { w = P(560); h = P(300); }
     if (u->dlg == DLG_END_CRIT) { w = P(520); h = P(232); }
     if (u->dlg == DLG_RUN) { w = P(460); h = P(214); }
+    /* Dialogs keep a small margin even at the 480x320 minimum window size. */
+    if (w > u->w - P(24)) w = u->w - P(24);
+    if (h > u->h - P(16)) h = u->h - P(16);
+    if (w < P(280)) w = u->w - P(8);
+    if (h < P(160)) h = u->h - P(8);
     int x = (u->w - w) / 2, y = (u->h - h) / 2;
     for (int i = 8; i >= 1; i--) gfx_rrect_a(g, x - i + 4, y - i + 8, w + 2 * i - 8, h + 2 * i - 8, P(10) + i, C_SHADOW, 9);
     gfx_rrect_b(g, x, y, w, h, P(10), C_PANEL, C_BORDER);
@@ -1037,7 +1144,7 @@ static void draw_dialog(UI *u)
         snprintf(line, sizeof line, "%s  (PID %d)", u->dlg_name, u->dlg_pid);
         gfx_text_clip(g, tx, ty, x + w - tx - P(24), line, C_TEXT); ty += P(20);
         gfx_font(g, F_UI);
-        gfx_text(g, tx, ty, u->dlg == DLG_END_TREE ? "This process and all of its child processes will be ended." : "Any unsaved data in this process will be lost.", C_DIM); ty += P(18);
+        gfx_text_clip(g, tx, ty, x + w - tx - P(24), u->dlg == DLG_END_TREE ? "This process and all of its child processes will be ended." : "Any unsaved data in this process will be lost.", C_DIM); ty += P(18);
         if (p) { snprintf(line, sizeof line, "%s   %s", p->user, p->cmd); gfx_text_clip(g, tx, ty, x + w - tx - P(24), line, C_DIM); }
         u->r_dlg_btn[0] = R(x + w - P(236), y + h - P(46), P(110), P(30));
         u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
@@ -1046,31 +1153,31 @@ static void draw_dialog(UI *u)
     } else if (u->dlg == DLG_END_CRIT) {
         /* red warning badge */
         int bx = x + P(24), by = ty - P(2);
-        gfx_rrect(g, bx, by, icon_sz, icon_sz, icon_sz / 2, 0xffc42b1c);
-        gfx_fill(g, bx + icon_sz / 2 - P(1), by + P(7), P(3), P(11), 0xffffffff);
-        gfx_fill(g, bx + icon_sz / 2 - P(1), by + P(21), P(3), P(3), 0xffffffff);
+        gfx_rrect(g, bx, by, icon_sz, icon_sz, icon_sz / 2, C_DANGER);
+        gfx_fill(g, bx + icon_sz / 2 - P(1), by + P(7), P(3), P(11), C_WHITE);
+        gfx_fill(g, bx + icon_sz / 2 - P(1), by + P(21), P(3), P(3), C_WHITE);
         int tx = bx + icon_sz + P(14);
         gfx_font(g, F_BOLD);
         snprintf(line, sizeof line, "%s  (PID %d)", u->dlg_name, u->dlg_pid);
         gfx_text_clip(g, tx, ty, x + w - tx - P(24), line, C_TEXT); ty += P(20);
         gfx_font(g, F_UI);
-        gfx_text(g, tx, ty, "This process is part of your desktop session. Ending it can leave you", 0xffc42b1c); ty += P(17);
-        gfx_text(g, tx, ty, "with no taskbar, no desktop or a frozen screen until you sign out.", 0xffc42b1c); ty += P(22);
-        gfx_text(g, tx, ty, "It is never ended as part of a tree. Click \"End anyway\" (or Ctrl+Enter).", C_DIM);
+        gfx_text_clip(g, tx, ty, x + w - tx - P(24), "This process is part of your desktop session. Ending it can leave you", C_DANGER); ty += P(17);
+        gfx_text_clip(g, tx, ty, x + w - tx - P(24), "with no taskbar, no desktop or a frozen screen until you sign out.", C_DANGER); ty += P(22);
+        gfx_text_clip(g, tx, ty, x + w - tx - P(24), "It is never ended as part of a tree. Click \"End anyway\" (or Ctrl+Enter).", C_DIM);
         u->r_dlg_btn[0] = R(x + w - P(236), y + h - P(46), P(110), P(30));
         u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
         { Rect b = u->r_dlg_btn[0]; int hv = inr(b, u->mx, u->my);
-          gfx_rrect_b(g, b.x, b.y, b.w, b.h, P(4), hv ? 0xffd93a2a : 0xffc42b1c, hv ? 0xffd93a2a : 0xffc42b1c);
-          gfx_text_mid(g, b.x, b.y, b.w, b.h, "End anyway", 0xffffffff); }
+          gfx_rrect_b(g, b.x, b.y, b.w, b.h, P(4), hv ? C_DANGERH : C_DANGER, hv ? C_DANGERH : C_DANGER);
+          gfx_text_mid(g, b.x, b.y, b.w, b.h, "End anyway", C_WHITE); }
         button(u, u->r_dlg_btn[1], "Cancel", 1, inr(u->r_dlg_btn[1], u->mx, u->my));
     } else if (u->dlg == DLG_RUN) {
         gfx_text(g, x + P(24), ty, "Type the name of a program, folder or document to open it.", C_DIM); ty += P(26);
         Rect in = R(x + P(24), ty, w - P(48), P(30));
-        gfx_rrect_b(g, in.x, in.y, in.w, in.h, P(5), 0xffffffff, C_SELB);
+        gfx_rrect_b(g, in.x, in.y, in.w, in.h, P(5), C_PANEL, C_SELB);
         gfx_rrect(g, in.x + P(6), in.y + in.h - P(2), in.w - P(12), P(2), P(1), C_SELB);
         gfx_text_clip(g, in.x + P(10), in.y + (in.h - gfx_fonth(g)) / 2, in.w - P(20), u->run, C_TEXT);
         { int cx = in.x + P(10) + gfx_textw(g, u->run) + P(1); if (cx < in.x + in.w - P(8)) gfx_fill(g, cx, in.y + P(7), P(1), in.h - P(14), C_TEXT); }
-        if (!u->nrun) gfx_text_v(g, in.x + P(10), in.y, in.h, "e.g. explorer.exe, cmd, notepad", 0xff8a8a8a);
+        if (!u->nrun) gfx_text_v(g, in.x + P(10), in.y, in.h, "e.g. explorer.exe, cmd, notepad", C_PLACE);
         u->r_dlg_btn[0] = R(x + w - P(236), y + h - P(46), P(110), P(30));
         u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
         button(u, u->r_dlg_btn[0], "OK", 1, inr(u->r_dlg_btn[0], u->mx, u->my));
@@ -1104,14 +1211,20 @@ static void draw_dialog(UI *u)
         if (p && p->pid != sys_self_pid()) button(u, u->r_dlg_btn[0], "End task", 0, inr(u->r_dlg_btn[0], u->mx, u->my)); else u->r_dlg_btn[0] = R(0, 0, 0, 0);
         button(u, u->r_dlg_btn[1], "Close", 1, inr(u->r_dlg_btn[1], u->mx, u->my));
     } else if (u->dlg == DLG_ABOUT) {
-        Proc self; memset(&self, 0, sizeof self); snprintf(self.name, sizeof self.name, "Task Manager");
         Icon logo = { icon_sz, NULL, IC_SYSTEM }; icon_draw(g, x + P(24), ty, &logo);
         int tx = x + P(24) + icon_sz + P(14);
         gfx_font(g, F_BOLD); gfx_text(g, tx, ty, "Task Manager " TM_VERSION, C_TEXT); gfx_font(g, F_UI);
         gfx_text(g, tx, ty + P(18), "A compact, dependency-free task manager.", C_DIM); ty += P(46);
         gfx_text(g, x + P(24), ty, "Software-rendered UI, native OS APIs, one tiny executable.", C_TEXT); ty += P(20);
-        snprintf(line, sizeof line, "%s  -  %s", u->sys.os, u->sys.host); gfx_text_clip(g, x + P(24), ty, w - P(48), line, C_DIM); ty += P(24);
-        gfx_text(g, x + P(24), ty, "Tab: switch tab   Type: search   Del: end task   Ctrl+N: run   Space: pause", C_DIM);
+        snprintf(line, sizeof line, "%s  -  %s", u->sys.os, u->sys.host); gfx_text_clip(g, x + P(24), ty, w - P(48), line, C_DIM); ty += P(25);
+        gfx_font(g, F_BOLD); gfx_text(g, x + P(24), ty, "Keyboard shortcuts", C_TEXT); gfx_font(g, F_UI);
+        int sw = (w - P(60)) / 2;
+        shortcut_item(u, x + P(24),       ty + P(22), sw, "Tab",      "Switch tabs");
+        shortcut_item(u, x + P(24),       ty + P(46), sw, "Type",     "Search processes");
+        shortcut_item(u, x + P(24),       ty + P(70), sw, "Enter",    "Open properties");
+        shortcut_item(u, x + P(24) + sw,  ty + P(22), sw, "Del",      "End task");
+        shortcut_item(u, x + P(24) + sw,  ty + P(46), sw, "Shift+Del", "End process tree");
+        shortcut_item(u, x + P(24) + sw,  ty + P(70), sw, "Space",    "Pause updates");
         u->r_dlg_btn[0] = R(0, 0, 0, 0);
         u->r_dlg_btn[1] = R(x + w - P(118), y + h - P(46), P(96), P(30));
         button(u, u->r_dlg_btn[1], "OK", 1, inr(u->r_dlg_btn[1], u->mx, u->my));
@@ -1137,12 +1250,12 @@ void ui_draw(UI *u)
     for (int i = 0; i < 4; i++) {
         int w = gfx_textw(g, menu_names[i]) + P(20);
         u->r_menu[i] = R(x, P(2), w, P(MENU_H) - P(4));
-        if (u->menu_open == i) gfx_rrect(g, x, P(2), w, P(MENU_H) - P(4), P(4), 0xffdedede);
-        else if (inr(u->r_menu[i], u->mx, u->my) && u->dlg == DLG_NONE) gfx_rrect(g, x, P(2), w, P(MENU_H) - P(4), P(4), 0xffe8e8e8);
+        if (u->menu_open == i) gfx_rrect(g, x, P(2), w, P(MENU_H) - P(4), P(4), C_HOVER);
+        else if (inr(u->r_menu[i], u->mx, u->my) && u->dlg == DLG_NONE) gfx_rrect(g, x, P(2), w, P(MENU_H) - P(4), P(4), C_HOVER);
         gfx_text_mid(g, x, P(2), w, P(MENU_H) - P(4), menu_names[i], C_TEXT);
         x += w;
     }
-    if (u->paused) { gfx_rrect(g, u->w - P(70), P(4), P(62), P(MENU_H) - P(8), P(4), 0xfffde7e9); gfx_text_mid(g, u->w - P(70), P(4), P(62), P(MENU_H) - P(8), "Paused", 0xffc42b1c); }
+    if (u->paused) { gfx_rrect(g, u->w - P(70), P(4), P(62), P(MENU_H) - P(8), P(4), C_PAUSED); gfx_text_mid(g, u->w - P(70), P(4), P(62), P(MENU_H) - P(8), "Paused", C_DANGER); }
     else { char sp[32]; snprintf(sp, sizeof sp, "Every %.1f s", u->interval_ms / 1000.0); gfx_text_rv(g, u->w - P(10), 0, P(MENU_H), sp, C_DIM); }
 
     /* tabs (Win11 pivot style) */
@@ -1152,7 +1265,7 @@ void ui_draw(UI *u)
     for (int i = 0; i < 3; i++) {
         int w = gfx_textw(g, tabs[i]) + P(28);
         u->r_tabs[i] = R(x, ty, w, P(TAB_H));
-        if (u->tab != i && inr(u->r_tabs[i], u->mx, u->my) && u->dlg == DLG_NONE) gfx_rrect(g, x, ty + P(4), w, P(TAB_H) - P(8), P(4), 0xffe8e8e8);
+        if (u->tab != i && inr(u->r_tabs[i], u->mx, u->my) && u->dlg == DLG_NONE) gfx_rrect(g, x, ty + P(4), w, P(TAB_H) - P(8), P(4), C_HOVER);
         gfx_font(g, u->tab == i ? F_BOLD : F_UI);
         gfx_text_mid(g, x, ty, w, P(TAB_H), tabs[i], u->tab == i ? C_TEXT : C_DIM);
         if (u->tab == i) gfx_rrect(g, x + P(10), ty + P(TAB_H) - P(4), w - P(20), P(3), P(2), C_SELB);
@@ -1169,15 +1282,16 @@ void ui_draw(UI *u)
         /* toolbar */
         int tby = content.y;
         gfx_fill(g, 0, tby, u->w, P(TOOL_H), C_WINBG);
-        u->r_search = R(P(12), tby + P(6), P(260), P(28));
+        int search_w = P(260);
+        u->r_search = R(P(12), tby + P(6), search_w, P(28));
         int sfocus = u->nsearch > 0;
-        gfx_rrect_b(g, u->r_search.x, u->r_search.y, u->r_search.w, u->r_search.h, P(5), 0xffffffff, sfocus ? C_SELB : C_BTNB);
+        gfx_rrect_b(g, u->r_search.x, u->r_search.y, u->r_search.w, u->r_search.h, P(5), C_PANEL, sfocus ? C_SELB : C_BTNB);
         if (sfocus) gfx_rrect(g, u->r_search.x + P(6), u->r_search.y + u->r_search.h - P(2), u->r_search.w - P(12), P(2), P(1), C_SELB);
-        else gfx_hline(g, u->r_search.x + P(4), u->r_search.y + u->r_search.h - P(1), u->r_search.w - P(8), 0xffbdbdbd);
+        else gfx_hline(g, u->r_search.x + P(4), u->r_search.y + u->r_search.h - P(1), u->r_search.w - P(8), C_BTNEDGE);
         /* magnifier glyph */
         { int gx = u->r_search.x + P(10), gy = u->r_search.y + P(8);
           for (int k = 0; k < 3; k++) gfx_rrect_a(g, gx + k, gy + k, P(9) - 2 * k, P(9) - 2 * k, P(4), C_DIM, k == 1 ? 255 : 0);
-          gfx_rrect(g, gx + 2, gy + 2, P(9) - 4, P(9) - 4, P(3), sfocus ? 0xffffffff : 0xffffffff);
+          gfx_rrect(g, gx + 2, gy + 2, P(9) - 4, P(9) - 4, P(3), C_WHITE);
           gfx_line_aa(g, gx + P(8), gy + P(8), gx + P(12), gy + P(12), C_DIM); }
         if (u->nsearch) {
             char sb[80]; snprintf(sb, sizeof sb, "%s", u->search);
@@ -1185,14 +1299,16 @@ void ui_draw(UI *u)
             int cx = u->r_search.x + P(28) + gfx_textw(g, sb) + P(1); if (cx < u->r_search.x + u->r_search.w - P(24)) gfx_fill(g, cx, u->r_search.y + P(7), P(1), u->r_search.h - P(14), C_TEXT);
             int xx = u->r_search.x + u->r_search.w - P(18), xy = u->r_search.y + u->r_search.h / 2;
             gfx_line_aa(g, xx - P(3), xy - P(3), xx + P(3), xy + P(3), C_DIM); gfx_line_aa(g, xx - P(3), xy + P(3), xx + P(3), xy - P(3), C_DIM);
-        } else gfx_text_v(g, u->r_search.x + P(28), u->r_search.y, u->r_search.h, "Search by name, user or PID", 0xff8a8a8a);
-        char cnt[64]; snprintf(cnt, sizeof cnt, "%d of %d processes", u->nview, u->nproc);
-        gfx_text_v(g, u->r_search.x + u->r_search.w + P(14), u->r_search.y, u->r_search.h, cnt, C_DIM);
+        } else gfx_text_v(g, u->r_search.x + P(28), u->r_search.y, u->r_search.h, "Search by name, user or PID", C_PLACE);
+        if (u->w >= P(560)) {
+            char cnt[64]; snprintf(cnt, sizeof cnt, "%d of %d processes", u->nview, u->nproc);
+            gfx_text_v(g, u->r_search.x + u->r_search.w + P(14), u->r_search.y, u->r_search.h, cnt, C_DIM);
+        }
 
         u->r_end = R(u->w - P(112), tby + P(6), P(100), P(28));
         Proc *sp = find_proc(u, u->sel_pid);
         if (sp) button(u, u->r_end, "End task", 1, inr(u->r_end, u->mx, u->my));
-        else { gfx_rrect_b(g, u->r_end.x, u->r_end.y, u->r_end.w, u->r_end.h, P(4), 0xffededed, 0xffe2e2e2); gfx_text_mid(g, u->r_end.x, u->r_end.y, u->r_end.w, u->r_end.h, "End task", 0xffa6a6a6); }
+        else { gfx_rrect_b(g, u->r_end.x, u->r_end.y, u->r_end.w, u->r_end.h, P(4), C_BTN, C_BORDER); gfx_text_mid(g, u->r_end.x, u->r_end.y, u->r_end.w, u->r_end.h, "End task", C_DISABLED); }
         if (u->tab == 0) {
             u->r_tree = R(u->r_end.x - P(96), tby + P(6), P(86), P(28));
             button(u, u->r_tree, u->tree ? "Tree: on" : "Tree: off", 0, inr(u->r_tree, u->mx, u->my));
@@ -1213,7 +1329,10 @@ void ui_draw(UI *u)
     if (u->flash_until) snprintf(st, sizeof st, "%s", u->flash);
     else snprintf(st, sizeof st, "Processes: %d     Threads: %d     CPU: %.0f%%     Memory: %.0f%%     Up time: %s",
              u->sys.nproc, u->sys.nthreads, u->cpu_pct, u->sys.mem_total ? 100.0 * u->sys.mem_used / u->sys.mem_total : 0, up);
-    gfx_text_v(g, P(12), sy, P(STATUS_H), st, u->flash_until ? C_ACCENT : C_DIM);
+    int rightw = gfx_textw(g, u->sys.os);
+    int leftw = u->w - P(24) - rightw;
+    if (leftw < P(24)) leftw = P(24);
+    gfx_text_clip(g, P(12), sy + (P(STATUS_H) - gfx_fonth(g)) / 2, leftw, st, u->flash_until ? C_ACCENT : C_DIM);
     gfx_text_rv(g, u->w - P(12), sy, P(STATUS_H), u->sys.os, C_DIM);
 
     /* overlays */
@@ -1244,7 +1363,7 @@ static void collect_tree(UI *u, const Proc *root, int *out, int *n, int max, int
 
 static void do_kill(UI *u, int pid, int tree)
 {
-    int list[1024], n = 0, fail = 0, ok = 0, gone = 0, denied = 0;
+    int list[1024], n = 0, fail = 0, ok = 0, gone = 0, stale = 0, denied = 0;
     Proc *root = find_proc(u, pid);
     if (!root) { flash(u, "The process has already exited."); u->dlg = DLG_NONE; return; }
     if (tree) collect_tree(u, root, list, &n, 1024, 0); else list[n++] = pid;
@@ -1252,11 +1371,12 @@ static void do_kill(UI *u, int pid, int tree)
         Proc *p = find_proc(u, list[i]);
         if (!p) { gone++; continue; }
         int r = sys_kill(p->pid, p->start);                 /* verified against the start stamp: never a recycled pid */
-        if (r == 0) ok++; else if (r == -2) gone++; else { fail++; denied++; }
+        if (r == 0) ok++; else if (r == -2) { gone++; stale++; } else { fail++; denied++; }
     }
     char msg[128];
     if (fail) { snprintf(u->dlg_msg, sizeof u->dlg_msg, "Could not end %d of %d process(es) - access denied.", denied, n); u->dlg = DLG_ERROR; }
-    else { if (tree) snprintf(msg, sizeof msg, "Ended %d process(es).", ok); else snprintf(msg, sizeof msg, "Ended %s.", u->dlg_name); if (tree && gone) snprintf(msg + strlen(msg), sizeof msg - strlen(msg), " (%d already gone)", gone); flash(u, msg); u->dlg = DLG_NONE; }
+    else if (!tree && stale && ok == 0) { flash(u, "The process exited or changed; it was not ended."); u->dlg = DLG_NONE; }
+    else { if (tree) snprintf(msg, sizeof msg, "Ended %d process(es).", ok); else snprintf(msg, sizeof msg, "Ended %s.", u->dlg_name); if (tree && (gone || stale)) snprintf(msg + strlen(msg), sizeof msg - strlen(msg), " (%d already gone or changed)", gone + stale); flash(u, msg); u->dlg = DLG_NONE; }
     u->last_sample = sys_now_ns() - (uint64_t)u->interval_ms * 1000000ull + 400000000ull;   /* resample soon */
 }
 
@@ -1267,7 +1387,7 @@ static void open_dialog(UI *u, int kind, int pid)
     if (kind == DLG_END || kind == DLG_END_TREE) {
         if (p->pid == sys_self_pid()) { flash(u, "Use File > Exit to close Task Manager."); return; }
         u->dlg_tree = kind == DLG_END_TREE;
-        if (proc_protected(p)) kind = DLG_END_CRIT;          /* red warning, Enter does not confirm */
+        if (proc_protected(p)) { kind = DLG_END_CRIT; u->dlg_tree = 0; }          /* red warning, Enter does not confirm */
     }
     u->dlg = kind; u->dlg_pid = pid; snprintf(u->dlg_name, sizeof u->dlg_name, "%s", p->name);
 }
@@ -1298,6 +1418,9 @@ static int do_action(UI *u, int a)
     case A_TREE: u->tree = !u->tree; rebuild_view(u); break;
     case A_KERNEL: u->show_kernel = !u->show_kernel; rebuild_view(u); break;
     case A_ONLYME: u->only_me = !u->only_me; rebuild_view(u); break;
+    case A_THEME_SYSTEM: ui_set_theme(u, TM_THEME_SYSTEM); break;
+    case A_THEME_LIGHT: ui_set_theme(u, TM_THEME_LIGHT); break;
+    case A_THEME_DARK: ui_set_theme(u, TM_THEME_DARK); break;
     case A_CORES: u->perf_cores = !u->perf_cores; break;
     case A_ABOUT: u->dlg = DLG_ABOUT; break;
     case A_END: open_dialog(u, DLG_END, u->ctx_pid > 0 ? u->ctx_pid : u->sel_pid); break;

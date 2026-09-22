@@ -29,6 +29,7 @@ static void usage(void)
            "  --dump             print a text snapshot to stdout and exit (no window)\n"
            "  --screenshot FILE  render one frame to FILE.bmp and exit (no window)\n"
            "  --size WxH         window / screenshot size (default 900x600)\n"
+           "  --theme MODE       system, light or dark (default: system)\n"
            "  -h, --help         this help\n\n"
            "keys: Tab tabs  Ctrl+F/type search  Up/Down select  Del end task  Shift+Del end tree\n"
            "      Enter properties  Ctrl+T tree  Ctrl+K kernel threads  Space pause  F5 refresh\n"
@@ -37,7 +38,7 @@ static void usage(void)
 
 int main(int argc, char **argv)
 {
-    int scale = 0, interval = 1000, tab = 0, w = 900, h = 600, dump = 0;
+    int scale = 0, interval = 1000, tab = 0, w = 900, h = 600, dump = 0, theme = TM_THEME_SYSTEM;
     const char *shot = NULL;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--scale") && i + 1 < argc) scale = atoi(argv[++i]);
@@ -46,6 +47,13 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--dump")) dump = 1;
         else if (!strcmp(argv[i], "--screenshot") && i + 1 < argc) shot = argv[++i];
         else if (!strcmp(argv[i], "--size") && i + 1 < argc) sscanf(argv[++i], "%dx%d", &w, &h);
+        else if (!strcmp(argv[i], "--theme") && i + 1 < argc) {
+            const char *v = argv[++i];
+            if (!strcmp(v, "light")) theme = TM_THEME_LIGHT;
+            else if (!strcmp(v, "dark")) theme = TM_THEME_DARK;
+            else if (!strcmp(v, "system")) theme = TM_THEME_SYSTEM;
+            else { fprintf(stderr, "unknown theme %s (use system, light or dark)\n", v); return 2; }
+        }
         else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) { usage(); return 0; }
         else { fprintf(stderr, "unknown option %s\n", argv[i]); usage(); return 2; }
     }
@@ -54,6 +62,7 @@ int main(int argc, char **argv)
 
     if (dump) {
         UI *u = ui_create(1);
+        ui_set_theme(u, theme);
         ui_set_tab(u, tab, 0);
         ui_resize(u, w, h);
         ui_tick(u);
@@ -69,6 +78,7 @@ int main(int argc, char **argv)
     if (win_open("Task Manager", w, h, &scale) != 0) return 1;
 
     UI *u = ui_create(scale);
+    ui_set_theme(u, theme);
     ui_set_tab(u, tab, 0);
     ui_set_interval(u, interval);
     ui_resize(u, w * (scale > 1 ? scale : 1), h * (scale > 1 ? scale : 1));

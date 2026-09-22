@@ -73,6 +73,7 @@ int      sys_procs(Proc **arr, int *n, int *cap);  /* fresh process list */
 int      sys_kill(int pid, uint64_t start);        /* 0 = ok; refuses if the pid's start stamp != start (pid reuse) */
 int      sys_self_pid(void);
 int      sys_spawn(const char *cmdline);            /* start a detached program; 0 = ok */
+int      sys_theme_dark(void);                      /* current OS appearance: 1 dark, 0 light/unknown */
 uint64_t sys_now_ns(void);
 int      sys_username(uint32_t uid, char *buf, int n);
 
@@ -183,6 +184,8 @@ void ui_draw(UI *u);
 const uint32_t *ui_pixels(UI *u, int *w, int *h);
 void ui_set_tab(UI *u, int tab, int perf_page);
 void ui_set_interval(UI *u, int ms);
+enum { TM_THEME_SYSTEM, TM_THEME_LIGHT, TM_THEME_DARK };
+void ui_set_theme(UI *u, int mode);
 void ui_force_sample(UI *u);                       /* sample now, regardless of interval */
 void ui_dump(UI *u);                               /* text dump to stdout */
 

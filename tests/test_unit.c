@@ -276,6 +276,9 @@ static void test_ui(void)
     int pw, ph; const uint32_t *px = ui_pixels(u, &pw, &ph); int accent = 0;
     for (int i = 0; i < pw * ph; i++) accent += px[i] == 0xff0078d4;
     CHECK(accent > 10);
+    ui_set_theme(u, TM_THEME_DARK); ui_draw(u); px = ui_pixels(u, &pw, &ph); CHECK(px[0] == 0xff202020);
+    ui_set_theme(u, TM_THEME_LIGHT); ui_draw(u); px = ui_pixels(u, &pw, &ph); CHECK(px[0] == 0xfff3f3f3);
+    ui_set_theme(u, TM_THEME_SYSTEM);
     ui_destroy(u);
 }
 

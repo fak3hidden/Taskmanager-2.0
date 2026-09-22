@@ -1,7 +1,7 @@
 # Task Manager 2.0
 
 A **Windows-Task-Manager-style system monitor** that is absurdly small:
-the whole application is a single native executable of **~60–115 KB** (not MB),
+the whole application is a single native executable of **~250–310 KB** (not MB),
 uses **~2 MB of RAM** while running, and has **zero dependencies** to install.
 
 | Platform        | Binary                              | Size    |
@@ -12,7 +12,7 @@ uses **~2 MB of RAM** while running, and has **zero dependencies** to install.
 | macOS Intel     | `build/macos-x86_64/taskmgr`        | ~255 KB |
 | macOS Apple Si. | `build/macos-aarch64/taskmgr`       | ~285 KB |
 
-That is roughly **3 500× under** the 1 GB budget (about 160 KB of each binary is the
+That is roughly **3 300× under** the 1 GB budget (about 160 KB of each binary is the
 anti-aliased font, baked in so nothing needs to be installed).
 
 ![Processes](docs/processes.png)
@@ -47,6 +47,8 @@ anti-aliased font, baked in so nothing needs to be installed).
 **General**
 - Windows 11-style look: anti-aliased proportional font (DejaVu Sans, baked in), rounded cards,
   buttons and menus, soft heat-map, pivot tabs, selection pill
+- **System light/dark theme** by default (also `Options ▸ Theme` or `--theme light|dark|system`); the
+  palette, charts, tables, menus and dialogs all change together
 - Update speed High (0.5 s) / Normal (1 s) / Low (4 s) / Paused (`Space`)
 - Keyboard-driven everything (`F10` menus, arrows, `Tab` cycles tabs, `Ctrl+1/2/3`)
 - HiDPI: auto 2× scaling (or `--scale 2`)
@@ -113,7 +115,7 @@ make test       # unit + integration tests (Linux)
 On Windows with MinGW / MSYS2:
 
 ```sh
-gcc -Os -std=c11 -o taskmgr.exe src/main.c src/ui.c src/gfx.c src/font.c src/sys_win.c src/win_w32.c ^
+gcc -Os -std=c11 -o taskmgr.exe src/main.c src/ui.c src/gfx.c src/icons.c src/png.c src/sys_win.c src/win_w32.c ^
     -Wl,--subsystem,windows -lgdi32 -luser32 -ladvapi32 -liphlpapi -lpowrprof -s
 ```
 
@@ -127,7 +129,7 @@ make all-cross ZIG="python3 -m ziglang"
 ## Usage
 
 ```
-taskmgr [--scale N] [--interval MS] [--tab 0|1|2] [--size WxH]
+taskmgr [--scale N] [--interval MS] [--tab 0|1|2] [--size WxH] [--theme system|light|dark]
 taskmgr --dump                  # text snapshot to stdout, no window
 taskmgr --screenshot out.bmp    # render one frame headlessly
 ```
@@ -147,9 +149,13 @@ taskmgr --screenshot out.bmp    # render one frame headlessly
 | `Space`              | pause updates                           |
 | `F5`                 | refresh now                             |
 | `F10`                | open menu bar                           |
+| `Ctrl+N`             | Run new task                            |
 | `Ctrl+Q`             | quit                                    |
 
 Ending processes you don't own requires root / Administrator, exactly like the original.
+The default system theme can be overridden for screenshots or accessibility with `--theme`; the
+`TM_THEME=dark` / `TM_THEME=light` environment variables are also understood by the native platform
+backends.
 
 ## Layout
 
@@ -167,6 +173,6 @@ src/win_x11.c    X11 window via dlopen (no headers / libs needed at build time)
 src/win_w32.c    Win32 window + GDI blit
 src/win_mac.c    Cocoa window via objc_msgSend (no SDK needed at build time)
 src/main.c       argument parsing and event loop
-tests/           unit tests (452 checks) + CLI integration tests + PNG fixtures
+tests/           unit tests (454 checks) + CLI integration tests + PNG fixtures
 tools/bakefont.py rasterises a TTF into src/fontdata.h (dependency-free)
 ```

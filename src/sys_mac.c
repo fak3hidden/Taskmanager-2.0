@@ -171,6 +171,17 @@ int sys_procs(Proc **arr, int *n, int *cap)
     return 0;
 }
 
+int sys_theme_dark(void)
+{
+    const char *force = getenv("TM_THEME");
+    if (force && (!strcasecmp(force, "dark") || !strcasecmp(force, "1"))) return 1;
+    if (force && (!strcasecmp(force, "light") || !strcasecmp(force, "0"))) return 0;
+    FILE *f = popen("defaults read -g AppleInterfaceStyle 2>/dev/null", "r");
+    if (!f) return 0;
+    char buf[64] = ""; fgets(buf, sizeof buf, f); pclose(f);
+    return strcasestr(buf, "dark") != NULL;
+}
+
 int sys_self_pid(void) { return (int)getpid(); }
 
 int sys_spawn(const char *cmdline)

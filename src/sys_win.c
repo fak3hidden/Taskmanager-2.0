@@ -230,6 +230,19 @@ int sys_procs(Proc **arr, int *n, int *cap)
     return 0;
 }
 
+int sys_theme_dark(void)
+{
+    const char *force = getenv("TM_THEME");
+    if (force && (!strcmp(force, "dark") || !strcmp(force, "1"))) return 1;
+    if (force && (!strcmp(force, "light") || !strcmp(force, "0"))) return 0;
+    HKEY k; DWORD v = 1, n = sizeof v, type = 0;
+    if (RegOpenKeyExA(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0, KEY_READ, &k) == 0) {
+        if (RegQueryValueExA(k, "AppsUseLightTheme", NULL, &type, (BYTE *)&v, &n) == ERROR_SUCCESS) { RegCloseKey(k); return v == 0; }
+        RegCloseKey(k);
+    }
+    return 0;
+}
+
 int sys_self_pid(void) { return (int)GetCurrentProcessId(); }
 
 int sys_spawn(const char *cmdline)
